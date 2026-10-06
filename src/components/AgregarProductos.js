@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import {useRouter} from "next/navigation";
 
 
 export default function AgregarProductos()
 {
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState (false);
     const [nombre, setNombre] = useState("");
     const [descripcion, setDescripcion] = useState("");
@@ -62,13 +64,12 @@ export default function AgregarProductos()
                 setCantidad("")
                 setImagen("")
                 setIsOpen(false)
+                router.refresh();
                 return;
             }
         }catch(e){
             console.log("Error",e)
         }
-        
-        
     };
 
     return(

@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase';
 
 import BotonPDF from '@/components/BotonPDF';
 import AgregarProductos from '@/components/AgregarProductos';
+import EliminarProducto from '@/components/EliminarProducto';
 
 // Al poner 'async' aquí, Next.js sabe que tiene que esperar a la base de datos
 export default async function Home() {
@@ -29,11 +30,14 @@ export default async function Home() {
       <div className="grid gap-4 max-w-2xl">
         {apartados?.map((item) => (
           <div key={item.id} className="p-4 border border-gray-200 rounded-lg shadow-sm bg-white">
-            {/* Cambia 'cliente' y 'producto' por los nombres reales de tus columnas */}
+            {/* Datos del producto */}
             <p className="text-red-900 font-bold">Cliente: {item.nombre}</p>
             <p className="text-gray-600">Producto: {item.descripcion}</p>
             <p className="text-sm text-gray-400 mt-2">ID: {item.id}</p>
-            <p>imagen: {item.imagen}</p>
+            {/* Boton de eliminar */}
+            <EliminarProducto className="" id={item.id} rutaImagen={item.imagen}/>
+            {/** Imagen del producto */}
+            {item.imagen && <img className='w-6 h-6' src={item.imagen} alt={item.nombre}/>} 
             <BotonPDF apartado={item}/>
           </div>
         ))}
