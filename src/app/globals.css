@@ -24,3 +24,17 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  /* Todo lo que tenga esta clase va a desaparecer al imprimir */
+  .no-imprimir {
+    display: none !important;
+  }
+
+  /* Para quitarle los bordes y sombras a las tarjetas al imprimir */
+  .tarjeta-imprimible {
+    border: none !important;
+    box-shadow: none !important;
+    margin-bottom: 20px;
+  }
+}
