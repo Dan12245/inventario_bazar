@@ -13,12 +13,18 @@ export default function AgregarProductos()
     const [descripcion, setDescripcion] = useState("");
     const [cantidad, setCantidad] = useState("");
     const [imagen, setImagen] = useState("");
+    //variable para cambiar la tabla donde se hacen las queries
+    const tabla = 'pruebas'
+
     const guardarProducto = async ()=>{
         //revisamos que se hayan llenado los campos necesarios
         if(!nombre || !cantidad){
-            alert("Porfavor llene los campos obligatorios")
+
+            alert("Porfavor llene los campos obligatorios");
+
             return;
         }
+
         //le hacemos un nuevo nombre a nuestra imagen para que este no se repita
         const nuevoNombre = Date.now()+'-'+imagen.name;
 
@@ -31,15 +37,19 @@ export default function AgregarProductos()
                 
                 //revisamos que se haya subido y nos traemos el url
                 if(errorImagen){
-                    alert("No se pudo subir la imagen")
-                    console.log(errorImagen)
+
+                    alert("No se pudo subir la imagen");
+
+                    console.log(errorImagen);
+
                     return;
                 }
 
             const {data:imagenNombre} = supabase.storage.
                     from('imagenes-productos').
                     getPublicUrl(nuevoNombre);
-            const imagenRuta = imagenNombre.publicUrl
+
+            const imagenRuta = imagenNombre.publicUrl;
 
             //creamos nuestro objeto a mandar a la base de datos
             const productoNuevo={
@@ -47,28 +57,33 @@ export default function AgregarProductos()
                 descripcion:descripcion,
                 cantidad:Number(cantidad),
                 imagen:imagenRuta
-            }
+            };
+
             //y lo enviamos
             const {data,error} = await supabase
-            .from('pruebas')
+            .from(tabla)
             .insert(productoNuevo)
-            .select()
+            .select();
+
             //en caso de que falle damos el error al usuario, si no entonces le decimos que todo salió bien y borramos los datos necesarios
             if(error){
-                alert("No se pudo guardar el producto")
+                alert("No se pudo guardar el producto");
                 return;
             }else{
-                alert("Producto guardado con exito")
-                setNombre("")
-                setDescripcion("")
-                setCantidad("")
-                setImagen("")
-                setIsOpen(false)
+                alert("Producto guardado con exito");
+                setNombre("");
+                setDescripcion("");
+                setCantidad("");
+                setImagen("");
+                setIsOpen(false);
                 router.refresh();
                 return;
+
             }
         }catch(e){
-            console.log("Error",e)
+
+            console.log("Error",e);
+
         }
     };
 

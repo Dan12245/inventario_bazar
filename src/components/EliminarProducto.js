@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 
 
 export default function EliminarProducto ({id, rutaImagen}){
+
     const router = useRouter();
+    //variable para cambiar la tabla donde se hacen las queries
+    const tabla = 'pruebas'
 
     const eliminarProducto = async () =>{
 
@@ -15,7 +18,7 @@ export default function EliminarProducto ({id, rutaImagen}){
         await supabase.storage.from('imagenes-productos').remove([recorte])
 
         const {data, error} = await supabase.
-        from('pruebas').delete().
+        from(tabla).delete().
         eq('id',id)
 
         if(error){

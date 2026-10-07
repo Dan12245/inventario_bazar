@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import BotonPDF from '@/components/BotonPDF';
 import AgregarProductos from '@/components/AgregarProductos';
 import EliminarProducto from '@/components/EliminarProducto';
+import EditarProducto from '@/components/EditarProducto';
 
 // Al poner 'async' aquí, Next.js sabe que tiene que esperar a la base de datos
 export default async function Home() {
@@ -11,7 +12,7 @@ export default async function Home() {
   // 1. Vamos a Supabase, buscamos tu tabla y nos traemos TODO (*)
   const { data: apartados, error } = await supabase
     .from('pruebas') 
-    .select('*');
+    .select('*').order('id', {ascending: true});
   // Si hay un error, lo mostramos en consola para saber qué pasó
   if (error) {
     console.error("Error trayendo datos:", error);
@@ -36,6 +37,8 @@ export default async function Home() {
             <p className="text-sm text-gray-400 mt-2">ID: {item.id}</p>
             {/* Boton de eliminar */}
             <EliminarProducto className="" id={item.id} rutaImagen={item.imagen}/>
+            {/**Boton de editar */}
+            <EditarProducto id={item.id} nombreActual={item.nombre} descActual={item.descripcion} cantActual={item.cantidad} imgActual={item.imagen} />
             {/** Imagen del producto */}
             {item.imagen && <img className='w-6 h-6' src={item.imagen} alt={item.nombre}/>} 
             <BotonPDF apartado={item}/>
