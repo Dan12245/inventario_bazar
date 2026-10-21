@@ -8,7 +8,7 @@ export default function EliminarProducto ({id, rutaImagen}){
 
     const router = useRouter();
     //variable para cambiar la tabla donde se hacen las queries
-    const tabla = 'pruebas'
+    const tabla = 'productos'
 
     const eliminarProducto = async () =>{
 

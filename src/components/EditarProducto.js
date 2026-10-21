@@ -13,7 +13,7 @@ export default function EditarProducto({id, nombreActual, descActual, cantActual
     const [cantidad, setCantidad] = useState(cantActual || "");
     const [imagen, setImagen] = useState("");
     //variable para cambiar la tabla donde se hacen las queries
-    const tabla = 'pruebas'
+    const tabla = 'productos'
 
     const editarProducto = async ()=>{
         if(!imagen){

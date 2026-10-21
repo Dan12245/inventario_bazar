@@ -13,7 +13,7 @@ export default function Home() { // <-- ¡Sin la palabra async!
   
   // Estados de memoria
   const [cargando, setCargando] = useState(true); // Para el guardia
-  const [apartados, setApartados] = useState([]); // Para guardar los productos
+  const [productos, setProductos] = useState([]); // Para guardar los productos
 
   useEffect(() => {
     // 1. Función del guardia
@@ -30,14 +30,14 @@ export default function Home() { // <-- ¡Sin la palabra async!
     // 2. Función para traer productos
     const traerProductos = async () => {
       const { data, error } = await supabase
-        .from('pruebas') 
+        .from('productos') 
         .select('*')
         .order('id', { ascending: true });
 
       if (error) {
         console.error("Error trayendo datos:", error);
       } else {
-        setApartados(data); // Guardamos los productos en la memoria
+        setProductos(data); // Guardamos los productos en la memoria
       }
     };
 
@@ -58,7 +58,7 @@ export default function Home() { // <-- ¡Sin la palabra async!
   return (
     <main className="p-10 font-sans">
       <h1 className="text-4xl font-bold text-blue-600 mb-8 no-imprimir">
-        Panel de Control - Apartados
+        Panel de Control - productos
       </h1>
       
       <div>
@@ -66,7 +66,7 @@ export default function Home() { // <-- ¡Sin la palabra async!
       </div>
 
       <div className="grid gap-4 max-w-2xl mt-4">
-        {apartados?.map((item) => (
+        {productos?.map((item) => (
           <div key={item.id} className="p-4 border border-gray-200 rounded-lg shadow-sm bg-white">
             <p className="text-red-900 font-bold">Cliente: {item.nombre}</p>
             <p className="text-gray-600">Producto: {item.descripcion}</p>
@@ -81,8 +81,8 @@ export default function Home() { // <-- ¡Sin la palabra async!
         ))}
       </div>
       
-      {(!apartados || apartados.length === 0) && (
-        <p className="text-gray-500 mt-4">No hay apartados todavía.</p>
+      {(!productos || productos.length === 0) && (
+        <p className="text-gray-500 mt-4">No hay productos todavía.</p>
       )}
     </main>
   );

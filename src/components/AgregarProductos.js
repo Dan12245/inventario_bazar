@@ -14,7 +14,7 @@ export default function AgregarProductos()
     const [cantidad, setCantidad] = useState("");
     const [imagen, setImagen] = useState("");
     //variable para cambiar la tabla donde se hacen las queries
-    const tabla = 'pruebas'
+    const tabla = 'productos'
 
     const guardarProducto = async ()=>{
         //revisamos que se hayan llenado los campos necesarios
@@ -25,31 +25,30 @@ export default function AgregarProductos()
             return;
         }
 
-        //le hacemos un nuevo nombre a nuestra imagen para que este no se repita
-        const nuevoNombre = Date.now()+'-'+imagen.name;
-
+        let imagenRuta = null;
+        
         try{
-            //le mandamos la imagen a un bucket de supabase para que este la guarde y nos traemos la ruta
-            const {data:dataImagen, error:errorImagen} =
-                await supabase.storage.
-                from('imagenes-productos').
-                upload(nuevoNombre,imagen);
-                
-                //revisamos que se haya subido y nos traemos el url
-                if(errorImagen){
-
-                    alert("No se pudo subir la imagen");
-
-                    console.log(errorImagen);
-
-                    return;
-                }
-
-            const {data:imagenNombre} = supabase.storage.
+            if (imagen){ 
+                //le hacemos un nuevo nombre a nuestra imagen para que este no se repita
+                const nuevoNombre = Date.now()+'-'+imagen.name;
+                //le mandamos la imagen a un bucket de supabase para que este la guarde y nos traemos la ruta
+                const {data:dataImagen, error:errorImagen} =
+                    await supabase.storage.
                     from('imagenes-productos').
-                    getPublicUrl(nuevoNombre);
-
-            const imagenRuta = imagenNombre.publicUrl;
+                    upload(nuevoNombre,imagen);
+                    
+                    //revisamos que se haya subido y nos traemos el url
+                    if(errorImagen){
+                        alert("No se pudo subir la imagen");
+                        console.log(errorImagen);
+                        return;
+                    }
+                const {data:imagenNombre} = supabase.storage.
+                        from('imagenes-productos').
+                        getPublicUrl(nuevoNombre);
+                 imagenRuta = imagenNombre.publicUrl;
+            }
+           
 
             //creamos nuestro objeto a mandar a la base de datos
             const productoNuevo={
