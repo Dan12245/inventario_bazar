@@ -65,21 +65,56 @@ export default function Home() { // <-- ¡Sin la palabra async!
         <AgregarProductos />
       </div>
 
-      <div className="grid gap-4 max-w-2xl mt-4">
-        {productos?.map((item) => (
-          <div key={item.id} className="p-4 border border-gray-200 rounded-lg shadow-sm bg-white">
-            <p className="text-red-900 font-bold">Cliente: {item.nombre}</p>
-            <p className="text-gray-600">Producto: {item.descripcion}</p>
-            <p className="text-sm text-gray-400 mt-2">ID: {item.id}</p>
-            
-            <EliminarProducto id={item.id} rutaImagen={item.imagen} />
-            <EditarProducto id={item.id} nombreActual={item.nombre} descActual={item.descripcion} cantActual={item.cantidad} imgActual={item.imagen} />
-            
-            {item.imagen && <img className='w-6 h-6' src={item.imagen} alt={item.nombre} />} 
-            <BotonPDF apartado={item} />
-          </div>
-        ))}
-      </div>
+      <div className="mt-4 overflow-x-auto">
+      <table className="w-full border-collapse bg-white text-black">
+        <thead className="bg-gray-200">
+          <tr>
+            <th className="p-3 text-left">Imagen</th>
+            <th className="p-3 text-left">ID</th>
+            <th className="p-3 text-left">Nombre</th>
+            <th className="p-3 text-left">Cantidad</th>
+            <th className="p-3 text-left">Estado</th>
+            <th className="p-3 text-left">Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {productos?.map((item) => (
+            <tr key={item.id} className="border-b">
+              <td className="p-3">
+                <img
+                  src={item.imagen || "/placeholder.png"}
+                  alt={item.nombre}
+                  className="w-12 h-12 object-cover rounded"
+                />
+              </td>
+
+              <td className="p-3">{item.id}</td>
+              <td className="p-3">{item.nombre}</td>
+              <td className="p-3">{item.cantidad}</td>
+              <td className="p-3">{item.estado}</td>
+
+              <td className="p-3">
+                <div className="flex gap-3">
+                  <EditarProducto
+                    id={item.id}
+                    nombreActual={item.nombre}
+                    descActual={item.descripcion}
+                    cantActual={item.cantidad}
+                    imgActual={item.imagen}
+                  />
+
+                  <EliminarProducto
+                    id={item.id}
+                    rutaImagen={item.imagen}
+                  />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
       
       {(!productos || productos.length === 0) && (
         <p className="text-gray-500 mt-4">No hay productos todavía.</p>
