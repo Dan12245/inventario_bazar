@@ -4,103 +4,136 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useState } from "react";
 
-export default function EditarProducto({id, nombreActual, descActual, cantActual, imgActual}){
+export default function EditarProducto({id, nombreActual, descActual, cantActual, imgActual, onProductoEditado}){
 
     const router = useRouter();
     const [isOpen, setIsOpen] = useState (false);
     const [nombre, setNombre] = useState(nombreActual || "");
     const [descripcion, setDescripcion] = useState(descActual || "");
     const [cantidad, setCantidad] = useState(cantActual || "");
-    const [imagen, setImagen] = useState("");
+    const [imagen, setImagen] = useState(null);
     //variable para cambiar la tabla donde se hacen las queries
     const tabla = 'productos'
 
-    const editarProducto = async ()=>{
-        if(!imagen){
-            try{
-                //si el usuario no quiere subir una imagen entoces hacemos este camino
-                const {data, error} = await supabase.from(tabla).update({
-                    nombre:nombre,
-                    descripcion:descripcion,
-                    cantidad:cantidad
-                }).eq('id',id);
+    const editarProducto = async () => {
+    if (!nombre.trim() || cantidad === "") {
+        alert("Por favor, llene los campos obligatorios");
+        return;
+    }
 
-                if(error){
-                    alert("No se pudo editar el producto");
-                    console.log(error);
-                    return;
-                }
+    const cantidadNumero = Number(cantidad);
 
-                alert("Producto actualizado con exito");
-                setNombre("");
-                setDescripcion("");
-                setCantidad("");
-                setImagen("");
-                setIsOpen(false);
-                router.refresh();
-                return;
+    if (!Number.isSafeInteger(cantidadNumero) || cantidadNumero < 0) {
+        alert("La cantidad debe ser un número entero no negativo");
+        return;
+    }
 
-            }catch(e){
-                alert("No se pudo actualizar el producto");
-                console.log(e);
-                return;
+    let nuevaImagenNombre = null;
+
+    try {
+        const { data: { session }, error: sessionError } =
+        await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+        alert("Debes iniciar sesión");
+        return;
+        }
+
+        let imagenRuta = null;
+
+        // Si se seleccionó una imagen nueva, la subimos
+        if (imagen) {
+        nuevaImagenNombre = `${crypto.randomUUID()}-${imagen.name}`;
+
+        const { error: errorImagen } = await supabase.storage
+            .from('imagenes-productos')
+            .upload(nuevaImagenNombre, imagen);
+
+        if (errorImagen) {
+            console.error(errorImagen);
+            alert("No se pudo subir la imagen");
+            return;
+        }
+
+        const { data: imagenNombre } = supabase.storage
+            .from('imagenes-productos')
+            .getPublicUrl(nuevaImagenNombre);
+
+        imagenRuta = imagenNombre.publicUrl;
+        }
+
+        // Construimos los datos para el PATCH
+        const productoEditado = {
+        nombre,
+        descripcion,
+        cantidad: cantidadNumero
+        };
+
+        if (imagenRuta) {
+        productoEditado.imagen = imagenRuta;
+        }
+
+        // Enviamos los datos a nuestro endpoint
+        const respuesta = await fetch(`/api/productos/${id}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify(productoEditado)
+        });
+
+        const data = await respuesta.json();
+
+        if (!respuesta.ok) {
+        // Si el PATCH falla, intentamos limpiar la imagen recién subida
+        if (nuevaImagenNombre) {
+            const { error: limpiezaError } = await supabase.storage
+            .from('imagenes-productos')
+            .remove([nuevaImagenNombre]);
+
+            if (limpiezaError) console.error(limpiezaError);
+        }
+
+        alert(data.error || "No se pudo editar el producto");
+        return;
+        }
+
+        // Si se guardó correctamente, intentamos borrar la imagen anterior
+        if (nuevaImagenNombre && imgActual) {
+        const marcador = '/imagenes-productos/';
+        const posicion = imgActual.indexOf(marcador);
+
+        if (posicion !== -1) {
+            const rutaAnterior = decodeURIComponent(
+            imgActual.slice(posicion + marcador.length).split('?')[0]
+            );
+
+            const { error: errorEliminar } = await supabase.storage
+            .from('imagenes-productos')
+            .remove([rutaAnterior]);
+
+            if (errorEliminar) {
+            console.warn("No se pudo eliminar la imagen anterior:", errorEliminar);
             }
         }
-        try{
-            //eliminamos la imagen antigua para guardar espacio en supabase
-            const recorte = imgActual.split('/').pop()
-            console.log(recorte);
-            await supabase.storage.from('imagenes-productos').remove([recorte])
-
-            const nuevoNombre = Date.now()+'-'+imagen.name;
-
-            //esto es lo que se hará en caso de tener una imagen nueva a subir
-            const {data:dataImagen, error:errorImagen} =
-                await supabase.storage.
-                from('imagenes-productos').
-                upload(nuevoNombre,imagen);
-                
-                //revisamos que se haya subido y nos traemos el url
-                if(errorImagen){
-                    alert("No se pudo subir la imagen");
-                    console.log(errorImagen);
-                    return;
-                }
-
-            const {data:imagenNombre} = supabase.storage.
-                    from('imagenes-productos').
-                    getPublicUrl(nuevoNombre);
-
-            const imagenRuta = imagenNombre.publicUrl;
-
-            const {data, error} = await supabase.from(tabla).update({
-                nombre:nombre,
-                descripcion:descripcion,
-                cantidad:cantidad,
-                imagen:imagenRuta
-            }).eq('id',id);
-
-            if(error){
-                alert("No se pudo editar el producto");
-                console.log(error);
-                return;
-            } 
-            alert("Producto actualizado con exito");
-            setNombre("");
-            setDescripcion("");
-            setCantidad("");
-            setImagen("");
-            setIsOpen(false);
-            router.refresh();
-            return;
-
-        }catch(e){
-            alert("No se pudo actualizar el producto");
-            console.log(e);
-            return;
         }
 
+        alert("Producto actualizado con éxito");
+
+        setImagen(null);
+        setIsOpen(false);
+
+        if (onProductoEditado) {
+        await onProductoEditado();
+        }
+
+    } catch (error) {
+        console.error("Error editando producto:", error);
+        alert("Ocurrió un error al editar el producto");
     }
+    };
+
     
      return(
         <div>

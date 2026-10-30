@@ -8,50 +8,89 @@ import EditarProducto from '@/components/EditarProducto';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function Home() { // <-- ¡Sin la palabra async!
+export default function Home() {
   const router = useRouter();
   
   // Estados de memoria
   const [cargando, setCargando] = useState(true); // Para el guardia
   const [productos, setProductos] = useState([]); // Para guardar los productos
-
-  useEffect(() => {
-    // 1. Función del guardia
-    const revisarSesion = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        router.push('/login');
-      } else {
-        setCargando(false);
+  const [autenticado, setAutenticado] = useState(false);
+  const traerProductos = async () => {
+  try {
+    const { data: { session }, error: sessionError } =
+      await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.error("No hay una sesión válida");
+        return;
       }
-    };
 
-    // 2. Función para traer productos
-    const traerProductos = async () => {
-      const { data, error } = await supabase
-        .from('productos') 
-        .select('*')
-        .order('id', { ascending: true });
+      const respuesta = await fetch('/api/productos', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
-      if (error) {
-        console.error("Error trayendo datos:", error);
-      } else {
-        setProductos(data); // Guardamos los productos en la memoria
+      const data = await respuesta.json();
+
+      if (!respuesta.ok) {
+        console.error("Error trayendo productos:", data.error);
+        return;
+      }
+
+      setProductos(data);
+
+    } catch (error) {
+      console.error("Error en la petición:", error);
+    }
+  };
+   // 2. Revisamos la sesión al cargar la página
+  useEffect(() => {
+    let activo = true;
+
+    const revisarSesion = async () => {
+      try {
+        const { data: { user }, error } =
+          await supabase.auth.getUser();
+
+        if (!activo) return;
+
+        if (error || !user) {
+          setAutenticado(false);
+          router.replace("/login")
+          return;
+        }
+
+        setAutenticado(true);
+        await traerProductos();
+
+      } catch (error) {
+        console.error("Error verificando sesión:", error);
+
+        if (activo) {
+          setAutenticado(false);
+          router.replace('/login');
+        }
+      } finally {
+        if (activo) {
+          setCargando(false);
+        }
       }
     };
 
     revisarSesion();
-    traerProductos();
-  }, []); // <-- Corchetes vacíos para que solo se ejecute al abrir la página
 
+    return () => {
+      activo = false;
+    };
+  }, [router]);
   // Mientras el guardia revisa, mostramos esto
   if (cargando) {
-    return (
-      <div className="p-10 font-sans">
-        <p>Revisando credenciales de seguridad...</p>
-      </div>
-    );
+    return <p>Revisando credenciales de seguridad...</p>;
+  }
+
+  if (!autenticado) {
+    return null;
   }
   
   // Cuando el guardia nos deja pasar, mostramos tu pantalla original
@@ -62,7 +101,7 @@ export default function Home() { // <-- ¡Sin la palabra async!
       </h1>
       
       <div>
-        <AgregarProductos />
+        <AgregarProductos onProductoAgregado={traerProductos}/>
       </div>
 
       <div className="mt-4 overflow-x-auto">
@@ -102,6 +141,7 @@ export default function Home() { // <-- ¡Sin la palabra async!
                     descActual={item.descripcion}
                     cantActual={item.cantidad}
                     imgActual={item.imagen}
+                    onProductoEditado={traerProductos}
                   />
 
                   <EliminarProducto

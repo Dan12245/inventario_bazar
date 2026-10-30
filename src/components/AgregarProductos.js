@@ -5,16 +5,14 @@ import { supabase } from "@/lib/supabase";
 import {useRouter} from "next/navigation";
 
 
-export default function AgregarProductos()
+export default function AgregarProductos({ onProductoAgregado })
 {
     const router = useRouter();
     const [isOpen, setIsOpen] = useState (false);
     const [nombre, setNombre] = useState("");
     const [descripcion, setDescripcion] = useState("");
     const [cantidad, setCantidad] = useState("");
-    const [imagen, setImagen] = useState("");
-    //variable para cambiar la tabla donde se hacen las queries
-    const tabla = 'productos'
+    const [imagen, setImagen] = useState(null);
 
     const guardarProducto = async ()=>{
         //revisamos que se hayan llenado los campos necesarios
@@ -58,15 +56,31 @@ export default function AgregarProductos()
                 imagen:imagenRuta
             };
 
-            //y lo enviamos
-            const {data,error} = await supabase
-            .from(tabla)
-            .insert(productoNuevo)
-            .select();
+            // Obtenemos la sesión
+            const { data: { session }, error: sessionError } =
+            await supabase.auth.getSession();
 
-            //en caso de que falle damos el error al usuario, si no entonces le decimos que todo salió bien y borramos los datos necesarios
-            if(error){
-                alert("No se pudo guardar el producto");
+            if (sessionError || !session) {
+                alert("Debes iniciar sesión");
+                return;
+            }
+
+            // Enviamos el producto a nuestro endpoint
+            const respuesta = await fetch('/api/productos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify(productoNuevo)
+            });
+
+            // Leemos la respuesta
+            const data = await respuesta.json();
+
+            if (!respuesta.ok) {
+                console.error("Error al guardar:", data.error);
+                alert(data.error || "No se pudo guardar el producto");
                 return;
             }else{
                 alert("Producto guardado con exito");
@@ -75,7 +89,7 @@ export default function AgregarProductos()
                 setCantidad("");
                 setImagen("");
                 setIsOpen(false);
-                router.refresh();
+                await onProductoAgregado();
                 return;
 
             }
