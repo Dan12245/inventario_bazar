@@ -131,3 +131,98 @@ export async function PATCH(request, { params }) {
     );
   }
 }
+
+//ruta delete para los productos
+export async function DELETE(request, { params }) {
+  try {
+    // Obtenemos el ID desde la URL
+    const { id } = await params;
+
+    if (
+      !/^[1-9]\d*$/.test(id) ||
+      !Number.isSafeInteger(Number(id))
+    ) {
+      return Response.json(
+        { error: 'ID inválido' },
+        { status: 400 }
+      );
+    }
+
+    // Obtenemos el token de autenticación
+    const authorization = request.headers.get('authorization');
+
+    if (!authorization?.startsWith('Bearer ')) {
+      return Response.json(
+        { error: 'No autorizado' },
+        { status: 401 }
+      );
+    }
+
+    const token = authorization.slice(7);
+
+    // Cliente de Supabase para esta petición
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        },
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      }
+    );
+
+    // Verificamos al usuario
+    const { data: authData, error: authError } =
+      await supabase.auth.getUser(token);
+
+    if (authError || !authData.user) {
+      return Response.json(
+        { error: 'Sesión inválida' },
+        { status: 401 }
+      );
+    }
+
+    // Eliminamos el producto indicado
+    const { data, error } = await supabase
+      .from('productos')
+      .delete()
+      .eq('id', Number(id))
+      .select('id, imagen')
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error al eliminar:', error);
+
+      return Response.json(
+        { error: 'No se pudo eliminar el producto' },
+        { status: 500 }
+      );
+    }
+
+    if (!data) {
+      return Response.json(
+        { error: 'Producto no encontrado o sin permiso' },
+        { status: 404 }
+      );
+    }
+
+    return Response.json({
+      mensaje: 'Producto eliminado correctamente',
+      producto: data
+    });
+
+  } catch (error) {
+    console.error('Error en DELETE:', error);
+
+    return Response.json(
+      { error: 'Error al procesar la solicitud' },
+      { status: 500 }
+    );
+  }
+}

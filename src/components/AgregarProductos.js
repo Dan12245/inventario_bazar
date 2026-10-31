@@ -100,52 +100,129 @@ export default function AgregarProductos({ onProductoAgregado })
         }
     };
 
-    return(
-        <div>
-            <button onClick={()=>setIsOpen(true)} className="mt-4 mb-4 bg-blue-800 rounded px-4 py-2 content-center">Añadir producto</button>
-            {isOpen && 
-                <div className="fixed inset-0 bg-black/70 flex justify-center items-center">      
-                    <div className="bg-gray-900 p-6 rounded-xl w-full max-w-md flex flex-col gap-4">
-                        {/* //campo para el nombre */}
-                        Nombre*
-                        <input
-                        type="text"
-                        placeholder="Nombre del producto"
-                        value={nombre}
-                        onChange={(e)=>setNombre(e.target.value)}
-                        />
-                        {/* //campo para la descripcion */}
-                        Descripcion
-                        <input
-                        type="text"
-                        placeholder="Descripción del producto"
-                        value={descripcion}
-                        onChange={(e)=>setDescripcion(e.target.value)}
-                        />
-                        {/* //campo de la cantidad de productos */}
-                        Cantidad*
-                        <input
-                        type="number"
-                        placeholder="Cantidad del producto"
-                        value={cantidad}
-                        onChange={(e)=>setCantidad(e.target.value)}
-                        />
+    
+return (
+    <>
+        <button
+        onClick={() => setIsOpen(true)}
+        className="bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-lg px-5 py-3 transition-colors"
+        >
+        + Añadir producto
+        </button>
 
-                        {/* campo para la imagen de producto */}
-                        imagen
-                        <input
-                        type="file"
-                        onChange={(e)=>setImagen(e.target.files[0])}
-                        />
-                        <div className="flex-2">
-                        <button className="mt-4 bg-green-800 rounded px-4 py-2 content-center" onClick={()=>guardarProducto()}>Confirmar</button>
-                        <button className="mt-4 bg-red-800 rounded px-4 py-2 content-center" onClick={()=>setIsOpen(false)}>cancelar</button>
-
-                        </div>
-                    </div>          
-                    
+        {isOpen && (
+        <div
+            className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+            onClick={() => setIsOpen(false)}
+        >
+            <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-agregar"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#171C27] border border-gray-700 rounded-2xl w-full max-w-lg max-h-[95vh] overflow-y-auto shadow-2xl"
+            >
+            {/* Encabezado */}
+            <div className="flex items-start justify-between p-6 border-b border-gray-800">
+                <div>
+                <h2 id="titulo-agregar" className="text-xl font-semibold text-white">
+                    Agregar producto
+                </h2>
+                <p className="text-sm text-gray-400 mt-1">
+                    Ingresa la información del artículo.
+                </p>
                 </div>
-            }
+
+                <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                aria-label="Cerrar"
+                className="text-gray-400 hover:text-white text-2xl"
+                >
+                ×
+                </button>
+            </div>
+
+            {/* Campos */}
+            <div className="p-6 space-y-5">
+                <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                    Nombre del producto *
+                </label>
+                <input
+                    type="text"
+                    placeholder="Ej. Mesa de madera"
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                    className="w-full bg-[#10151E] border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-violet-500"
+                />
+                </div>
+
+                <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                    Descripción
+                </label>
+                <textarea
+                    placeholder="Describe el artículo..."
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    rows={3}
+                    className="w-full bg-[#10151E] border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-violet-500 resize-none"
+                />
+                </div>
+
+                <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                    Cantidad *
+                </label>
+                <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                    value={cantidad}
+                    onChange={(e) => setCantidad(e.target.value)}
+                    className="w-full bg-[#10151E] border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-violet-500"
+                />
+                </div>
+
+                <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                    Imagen del producto
+                </label>
+                <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setImagen(e.target.files?.[0] ?? null)}
+                    className="w-full text-sm text-gray-400 file:mr-4 file:rounded-lg file:border-0 file:bg-violet-500/15 file:px-4 file:py-3 file:text-violet-300 hover:file:bg-violet-500/25"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                    Opcional. Selecciona una fotografía del producto.
+                </p>
+                </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex justify-end gap-3 px-6 py-5 border-t border-gray-800">
+                <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="px-5 py-3 rounded-lg text-gray-300 bg-gray-700 hover:bg-gray-600 transition-colors"
+                >
+                Cancelar
+                </button>
+
+                <button
+                type="button"
+                onClick={guardarProducto}
+                className="px-5 py-3 rounded-lg text-white bg-violet-600 hover:bg-violet-700 transition-colors"
+                >
+                Guardar producto
+                </button>
+            </div>
+            </div>
         </div>
-    )
+        )}
+    </>
+    );
 }
