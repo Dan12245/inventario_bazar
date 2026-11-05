@@ -1,4 +1,3 @@
-
 "use client";
 
 import { supabase } from "../../lib/supabase";
@@ -9,6 +8,7 @@ import EditarProducto from "@/components/EditarProducto";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/SideBar";
+import ApartarProducto from "@/components/ApartarProductos";
 
 export default function Home() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function Home() {
   const [productos, setProductos] = useState([]);
   const [autenticado, setAutenticado] = useState(false);
   const [busqueda, setBusqueda] = useState("");
+  
 
   // Obtener productos desde nuestra API
   const traerProductos = async () => {
@@ -316,6 +317,11 @@ export default function Home() {
                         <EliminarProducto
                           id={item.id}
                           onProductoEliminado={traerProductos}
+                        />
+
+                        <ApartarProducto
+                          producto={item}
+                          onApartadoCreado={traerProductos}
                         />
 
                       </div>
