@@ -46,6 +46,7 @@ export async function GET(request) {
     const { data, error } = await supabase
       .from('productos')
       .select('*')
+      .eq("activo", true)
       .order('id', { ascending: true });
 
     if (error) {

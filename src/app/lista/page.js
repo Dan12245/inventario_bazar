@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/SideBar";
 import ApartarProducto from "@/components/ApartarProductos";
+import ProductosRetirados from "@/components/ProductosRetirados";
 
 export default function Home() {
   const router = useRouter();
@@ -198,6 +199,9 @@ export default function Home() {
                   del inventario.
                 </p>
               </div>
+               <ProductosRetirados
+                  onProductoReactivado={traerProductos}
+                />
 
               <AgregarProductos
                 onProductoAgregado={traerProductos}
@@ -221,33 +225,32 @@ export default function Home() {
 
           {/* ÚNICA SECCIÓN CON SCROLL */}
           <div className="flex-1 min-h-0 min-w-0 overflow-auto">
-
-            <table className="w-full min-w-[750px] text-sm">
+            <table className="w-full min-w-[750px] text-sm table-auto">
 
               {/* Encabezados fijos */}
               <thead className="sticky top-0 z-10 bg-[#252B36]">
                 <tr>
-                  <th className="p-4 font-medium">
+                  <th className="p-4 font-medium text-center">
                     Imagen
                   </th>
 
-                  <th className="p-4 font-medium">
+                  <th className="p-4 font-medium text-center">
                     ID
                   </th>
 
-                  <th className="p-4 font-medium">
+                  <th className="p-4 font-medium text-left">
                     Nombre
                   </th>
 
-                  <th className="p-4 font-medium">
+                  <th className="p-4 font-medium text-center">
                     Cantidad
                   </th>
 
-                  <th className="p-4 font-medium">
+                  <th className="p-4 font-medium text-center">
                     Estado
                   </th>
 
-                  <th className="p-4 font-medium">
+                  <th className="p-4 font-medium text-center">
                     Acciones
                   </th>
                 </tr>
@@ -255,7 +258,6 @@ export default function Home() {
 
               {/* Productos */}
               <tbody className="divide-y divide-gray-800">
-
                 {productosFiltrados.map((item) => (
                   <tr
                     key={item.id}
@@ -263,36 +265,45 @@ export default function Home() {
                   >
 
                     {/* Imagen */}
-                    <td className="p-4">
+                    <td className="p-4 text-center">
                       <img
-                        src={
-                          item.imagen ||
-                          "/placeholder.png"
-                        }
+                        src={item.imagen || "/placeholder.png"}
                         alt={item.nombre}
-                        className="w-12 h-12 rounded-lg object-cover bg-gray-800"
+                        className="w-12 h-12 mx-auto rounded-lg object-cover bg-gray-800"
                       />
                     </td>
 
                     {/* ID */}
-                    <td className="p-4 text-gray-400">
+                    <td className="p-4 text-center text-gray-400">
                       {item.id}
                     </td>
 
                     {/* Nombre */}
-                    <td className="p-4 font-medium text-white">
+                    <td className="p-4 text-left font-medium text-white">
                       {item.nombre}
                     </td>
 
                     {/* Cantidad */}
-                    <td className="p-4 text-gray-300">
+                    <td className="p-4 text-center text-gray-300">
                       {item.cantidad}
                     </td>
 
                     {/* Estado */}
-                    <td className="p-4">
-                      <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-violet-500/10 text-violet-300">
-                        {item.estado || "Sin estado"}
+                    <td className="p-4 text-center">
+                      <span
+                        className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                          !item.activo
+                            ? "bg-gray-500/10 text-gray-400"
+                            : item.cantidad > 0
+                              ? "bg-green-500/10 text-green-400"
+                              : "bg-red-500/10 text-red-400"
+                        }`}
+                      >
+                        {!item.activo
+                          ? "Retirado"
+                          : item.cantidad > 0
+                            ? "Disponible"
+                            : "Agotado"}
                       </span>
                     </td>
 
@@ -313,12 +324,13 @@ export default function Home() {
                           onProductoEditado={traerProductos}
                         />
 
-                        {/* Eliminar */}
+                        {/* Retirar */}
                         <EliminarProducto
                           id={item.id}
                           onProductoEliminado={traerProductos}
                         />
 
+                        {/* Apartar */}
                         <ApartarProducto
                           producto={item}
                           onApartadoCreado={traerProductos}
@@ -329,7 +341,6 @@ export default function Home() {
 
                   </tr>
                 ))}
-
               </tbody>
             </table>
 
@@ -341,8 +352,8 @@ export default function Home() {
                   : "No se encontraron productos."}
               </p>
             )}
-
           </div>
+
 
         </div>
 
