@@ -1,10 +1,30 @@
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { crearSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { procesarMensaje } from "@/lib/chatbot";
 
 export const runtime = "nodejs";
 
-
+// Enviar la respuesta a WhatsApp
 async function enviarMensaje(numero, texto) {
+   // Normalizar números mexicanos para el envío
+const destinatario = /^521\d{10}$/.test(numero)
+  ? `52${numero.slice(3)}`
+  : numero;
+  if (
+  process.env.NODE_ENV === "development" &&
+  process.env.WHATSAPP_DRY_RUN === "true"
+) 
+{
+ 
+  console.log("🧪 WhatsApp simulado:", {
+    numero,
+    respuesta: texto
+  });
+
+  return;
+}
+
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const version = process.env.WHATSAPP_API_VERSION;
@@ -12,16 +32,6 @@ async function enviarMensaje(numero, texto) {
   if (!token || !phoneNumberId || !version) {
     throw new Error("Faltan variables de WhatsApp.");
   }
-
-  const mensaje = {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to: numero,
-    type: "text",
-    text: {
-      body: texto
-    }
-  };
 
   const respuesta = await fetch(
     `https://graph.facebook.com/${version}/${phoneNumberId}/messages`,
@@ -31,7 +41,15 @@ async function enviarMensaje(numero, texto) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(mensaje)
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: destinatario,
+        type: "text",
+        text: {
+          body: texto
+        }
+      })
     }
   );
 
@@ -42,11 +60,26 @@ async function enviarMensaje(numero, texto) {
     throw new Error("No se pudo enviar el WhatsApp.");
   }
 
-  console.log("Respuesta enviada:", resultado.messages?.[0]?.id);
+  console.log(
+    "Respuesta enviada:",
+    resultado.messages?.[0]?.id
+  );
 }
 
+// Actualizar el estado de un mensaje recibido
+async function actualizarMensaje(supabase, mensajeId, estado) {
+  const { error } = await supabase
+    .from("mensajes_whatsapp")
+    .update({
+      estado,
+      updated_at: new Date().toISOString()
+    })
+    .eq("mensaje_id", mensajeId);
 
-// Meta verifica el webhook mediante GET
+  if (error) throw error;
+}
+
+// Verificación inicial del webhook
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
 
@@ -62,7 +95,9 @@ export async function GET(request) {
   ) {
     console.log("Webhook de WhatsApp verificado");
 
-    return new Response(challenge, { status: 200 });
+    return new Response(challenge, {
+      status: 200
+    });
   }
 
   return new Response("Verificación fallida", {
@@ -70,8 +105,7 @@ export async function GET(request) {
   });
 }
 
-// Meta envía mensajes a nuestro servidor mediante POST
-
+// Recibir mensajes de Meta
 export async function POST(request) {
   try {
     const appSecret = process.env.WHATSAPP_APP_SECRET;
@@ -79,9 +113,12 @@ export async function POST(request) {
     const cuerpo = await request.text();
 
     if (!appSecret || !firma) {
-      return new Response("No autorizado", { status: 401 });
+      return new Response("No autorizado", {
+        status: 401
+      });
     }
 
+    // Verificar que el mensaje venga de Meta
     const firmaEsperada =
       "sha256=" +
       createHmac("sha256", appSecret)
@@ -95,32 +132,93 @@ export async function POST(request) {
       firmaRecibida.length !== firmaCalculada.length ||
       !timingSafeEqual(firmaRecibida, firmaCalculada)
     ) {
-      return new Response("Firma inválida", { status: 401 });
+      return new Response("Firma inválida", {
+        status: 401
+      });
     }
 
     const evento = JSON.parse(cuerpo);
+    const supabase = crearSupabaseAdmin();
 
     for (const entrada of evento.entry ?? []) {
       for (const cambio of entrada.changes ?? []) {
         for (const mensaje of cambio.value?.messages ?? []) {
 
-          // Por ahora solamente contestamos texto
+          // De momento solo atendemos mensajes de texto
           if (mensaje.type !== "text") continue;
 
+          const mensajeId = mensaje.id;
           const numero = mensaje.from;
-          const texto = mensaje.text?.body?.trim().toLowerCase();
+          const texto = mensaje.text?.body?.trim();
 
-          console.log("Mensaje recibido:", {
-            numero,
-            texto
-          });
+          if (!mensajeId || !numero || !texto) {
+            continue;
+          }
 
-          // Nuestro primer bot: responde solamente a "hola"
-          if (texto === "hola") {
-            await enviarMensaje(
-              numero,
-              "¡Hola! 👋 Bienvenido al bazar. ¿En qué podemos ayudarte?"
+          // Reclamar el mensaje de forma atómica
+          const { data: procesar, error: errorRegistro } =
+            await supabase.rpc("iniciar_mensaje_whatsapp", {
+              p_mensaje_id: mensajeId,
+              p_telefono: numero
+            });
+
+          if (errorRegistro) {
+            throw errorRegistro;
+          }
+
+          if (!procesar) {
+            console.log(
+              "Mensaje duplicado o en procesamiento:",
+              mensajeId
             );
+
+            continue;
+          }
+
+          try {
+            console.log("Procesando mensaje:", {
+              mensajeId,
+              numero,
+              texto
+            });
+
+            // ¡Aquí utilizamos nuestro chatbot real!
+            const respuesta = await procesarMensaje(
+              numero,
+              texto
+            );
+
+            await enviarMensaje(numero, respuesta);
+
+            // El procesamiento terminó correctamente
+            await actualizarMensaje(
+              supabase,
+              mensajeId,
+              "completado"
+            );
+
+          } catch (error) {
+            console.error(
+              "Error procesando mensaje:",
+              mensajeId,
+              error
+            );
+
+            // Permitir reintentar el mismo mensaje
+            try {
+              await actualizarMensaje(
+                supabase,
+                mensajeId,
+                "fallido"
+              );
+            } catch (errorEstado) {
+              console.error(
+                "No se pudo marcar el mensaje como fallido:",
+                errorEstado
+              );
+            }
+
+            throw error;
           }
         }
       }
@@ -133,9 +231,9 @@ export async function POST(request) {
   } catch (error) {
     console.error("Error en webhook:", error);
 
+    // Meta puede reintentar la entrega
     return new Response("Error interno", {
       status: 500
     });
   }
 }
-

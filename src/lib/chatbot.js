@@ -1,5 +1,6 @@
 
 import { crearSupabaseAdmin } from "@/lib/supabaseAdmin";
+//import {randomUUID} from "node:crypto";
 
 const menu = `¡Hola! 👋 Bienvenido al bazar.
 
@@ -32,7 +33,7 @@ export async function procesarMensaje(telefono, texto) {
   // Recuperar la conversación actual
   const { data: conversacion, error } = await supabase
     .from("conversaciones_whatsapp")
-    .select("estado, id_producto, cantidad, opciones_producto")
+    .select("estado, id_producto, cantidad, opciones_producto, nombre_cliente, solicitud_id")
     .eq("telefono", telefono)
     .single();
 
@@ -169,7 +170,9 @@ Cantidad disponible: ${producto.cantidad}
   // 3. Estamos esperando Sí o No
   if (conversacion.estado === "confirmando_interes") {
     if (mensaje === "1" || mensaje === "si" || mensaje === "sí") {
-  await cambiarEstado("esperando_cantidad", {
+        const solicitudId = crypto.randomUUID();
+   await cambiarEstado("esperando_cantidad", {
+    solicitud_id: solicitudId,
     cantidad: null,
     nombre_cliente: null
   });
@@ -233,22 +236,103 @@ Cantidad: ${conversacion.cantidad}
 }
 
 
+
 if (conversacion.estado === "confirmando_apartado") {
 
-  // El cliente confirma
+  // El cliente confirma su apartado
   if (mensaje === "1" || mensaje === "confirmar") {
-    await cambiarEstado("menu", {
-      id_producto: null,
-      cantidad: null,
-      nombre_cliente: null,
-      opciones_producto: []
-    });
 
-    return `¡Perfecto! 😄
+    // Comprobar que tenemos todos los datos
+    if (
+      !conversacion.solicitud_id ||
+      !conversacion.id_producto ||
+      !Number.isSafeInteger(conversacion.cantidad) ||
+      conversacion.cantidad <= 0 ||
+      !conversacion.nombre_cliente
+    ) {
+      return `Faltan datos para registrar el apartado.
 
-Recibimos tu confirmación correctamente.
+Escribe "menu" para comenzar nuevamente.`;
+    }
 
-Por ahora es una prueba, así que no se ha registrado ningún apartado.
+    // Ejecutar la función protegida de PostgreSQL
+    const { data: idApartado, error: errorApartado } =
+      await supabase.rpc("registrar_apartado", {
+        p_id_producto: conversacion.id_producto,
+        p_cliente: conversacion.nombre_cliente,
+        p_telefono: telefono,
+        p_cantidad: conversacion.cantidad,
+        p_solicitud_id: conversacion.solicitud_id
+      });
+
+    if (errorApartado) {
+      console.error(
+        "Error registrando apartado:",
+        errorApartado
+      );
+
+      // NO limpiamos los datos ni el UUID.
+      // Así podemos reintentar la misma solicitud.
+      return `No fue posible registrar tu apartado.
+
+Puede que el producto ya no tenga existencias
+suficientes o que haya ocurrido un problema.
+
+Puedes escribir "1" para intentar nuevamente
+o "2" para cancelar.`;
+    }
+
+    // Consultar el nombre del producto para el mensaje
+    const { data: producto, error: errorProducto } =
+      await supabase
+        .from("productos")
+        .select("nombre")
+        .eq("id", conversacion.id_producto)
+        .maybeSingle();
+
+    if (errorProducto) {
+      console.error(
+        "Error consultando nombre del producto:",
+        errorProducto
+      );
+    }
+
+    const nombreProducto =
+      producto?.nombre ??
+      `Producto #${conversacion.id_producto}`;
+
+    // Limpiar la conversación únicamente si sigue
+    // correspondiendo a esta misma solicitud.
+    const { error: errorLimpieza } = await supabase
+      .from("conversaciones_whatsapp")
+      .update({
+        estado: "menu",
+        id_producto: null,
+        cantidad: null,
+        nombre_cliente: null,
+        opciones_producto: [],
+        solicitud_id: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("telefono", telefono)
+      .eq("estado", "confirmando_apartado")
+      .eq("solicitud_id", conversacion.solicitud_id);
+
+    if (errorLimpieza) {
+      console.error(
+        "Apartado creado, pero falló la limpieza:",
+        errorLimpieza
+      );
+    }
+
+    return `✅ ¡Tu apartado se registró correctamente!
+
+Número de apartado: #${idApartado}
+Producto: ${nombreProducto}
+Cantidad: ${conversacion.cantidad}
+A nombre de: ${conversacion.nombre_cliente}
+
+¡Gracias por apartar con nosotros! 😄
 
 Escribe "menu" para regresar.`;
   }
@@ -259,10 +343,11 @@ Escribe "menu" para regresar.`;
       id_producto: null,
       cantidad: null,
       nombre_cliente: null,
-      opciones_producto: []
+      opciones_producto: [],
+      solicitud_id: null
     });
 
-    return `Se canceló la solicitud correctamente.
+    return `Se canceló tu solicitud.
 
 No se realizó ningún apartado.
 
@@ -274,6 +359,7 @@ ${menu}`;
 1. Confirmar
 2. Cancelar`;
 }
+
 
 
   // 4. Opciones del menú principal
