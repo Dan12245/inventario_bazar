@@ -6,7 +6,7 @@ import { procesarMensaje } from "@/lib/chatbot";
 export const runtime = "nodejs";
 
 export async function POST(request) {
-  // Solo disponible durante el desarrollo
+  // Endpoint disponible solamente en desarrollo
   if (process.env.NODE_ENV !== "development") {
     return NextResponse.json(
       { error: "Ruta no disponible" },
@@ -14,7 +14,7 @@ export async function POST(request) {
     );
   }
 
-  // Verificar la clave de pruebas
+  // Verificar clave de pruebas
   const clave = process.env.WHATSAPP_TEST_SECRET;
   const recibida = request.headers.get("x-test-secret") || "";
 
@@ -39,32 +39,38 @@ export async function POST(request) {
   }
 
   try {
-    const { texto } = await request.json();
+    // Recibir datos desde Postman
+    const { telefono, texto } = await request.json();
 
+    // Validar teléfono y mensaje
     if (
+      typeof telefono !== "string" ||
+      !/^[0-9]{8,15}$/.test(telefono) ||
       typeof texto !== "string" ||
-      texto.trim().length === 0 ||
+      !texto.trim() ||
       texto.length > 1000
     ) {
       return NextResponse.json(
-        { error: "Debes enviar un texto válido" },
+        { error: "Teléfono o mensaje inválido" },
         { status: 400 }
       );
     }
 
-    const respuesta = procesarMensaje(texto);
+    // Ejecutar la lógica del chatbot
+    const respuesta = await procesarMensaje(telefono, texto);
 
     return NextResponse.json({
+      telefono,
       mensaje_recibido: texto,
       respuesta
     });
 
   } catch (error) {
-    console.error("Error simulando mensaje:", error);
+    console.error("Error del simulador:", error);
 
     return NextResponse.json(
-      { error: "Solicitud JSON inválida" },
-      { status: 400 }
+      { error: "No se pudo procesar el mensaje" },
+      { status: 500 }
     );
   }
 }
