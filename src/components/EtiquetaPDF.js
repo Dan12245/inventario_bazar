@@ -15,16 +15,15 @@ const styles = StyleSheet.create({
     color: "#171C27"
   },
 
-
   encabezado: {
     alignItems: "center",
-    marginBottom: 18
+    marginBottom: 12
   },
 
   nombreBazar: {
     fontSize: 15,
     fontWeight: "bold",
-    marginBottom: 8
+    marginBottom: 6
   },
 
   subtitulo: {
@@ -41,68 +40,64 @@ const styles = StyleSheet.create({
   folio: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 18
+    marginBottom: 12
   },
 
   folioTexto: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#6B7280"
   },
 
   folioNumero: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "bold"
   },
 
   campo: {
-    marginBottom: 16
+    marginBottom: 11
   },
 
   etiqueta: {
-    fontSize: 9,
+    fontSize: 8,
     color: "#6B7280",
-    marginBottom: 5
+    marginBottom: 4
   },
 
   valor: {
-    fontSize: 12,
-    color: "#171C27",
+    fontSize: 11,
     fontWeight: "bold"
   },
 
-  aviso: {
-    backgroundColor: "#F5F3FF",
-    padding: 12,
-    borderRadius: 6,
-    marginTop: 12
-  },
-
-  avisoTitulo: {
-    fontSize: 10,
-    color: "#6D28D9",
-    textAlign: "center",
-    marginBottom: 5
-  },
-
-  avisoTexto: {
-    fontSize: 9,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 1.5
+  precio: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#171C27"
   },
 
   pie: {
-    marginTop: 18,
+    marginTop: 12,
     fontSize: 8,
     color: "#9CA3AF",
     textAlign: "center"
   }
 });
 
+const formatoPrecio = (precio) => {
+  if (precio == null) return "Sin precio";
+
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(Number(precio));
+};
+
 export default function EtiquetaPDF({ producto }) {
   return (
     <Document>
       <Page size="A6" style={styles.page} wrap={false}>
+
         {/* Encabezado */}
         <View style={styles.encabezado}>
           <Text style={styles.nombreBazar}>
@@ -110,7 +105,7 @@ export default function EtiquetaPDF({ producto }) {
           </Text>
 
           <Text style={styles.subtitulo}>
-            COMPROBANTE DE producto
+            ETIQUETA DE PRODUCTO
           </Text>
         </View>
 
@@ -119,7 +114,7 @@ export default function EtiquetaPDF({ producto }) {
         {/* Folio */}
         <View style={styles.folio}>
           <Text style={styles.folioTexto}>
-            Folio de producto
+            ID del producto
           </Text>
 
           <Text style={styles.folioNumero}>
@@ -129,32 +124,48 @@ export default function EtiquetaPDF({ producto }) {
 
         {/* Información */}
         <View style={styles.campo}>
-          <Text style={styles.etiqueta}>CLIENTE</Text>
+          <Text style={styles.etiqueta}>
+            PRODUCTO
+          </Text>
+
           <Text style={styles.valor}>
-            {producto.cliente || "No especificado"}
+            {producto.nombre || "No especificado"}
           </Text>
         </View>
 
         <View style={styles.campo}>
-          <Text style={styles.etiqueta}>PRODUCTO</Text>
+          <Text style={styles.etiqueta}>
+            DESCRIPCIÓN
+          </Text>
+
           <Text style={styles.valor}>
-            {producto.producto || "No especificado"}
+            {producto.descripcion || "Sin descripción"}
           </Text>
         </View>
 
-        {/* Aviso */}
-        <View style={styles.aviso}>
-          <Text style={styles.avisoTitulo}>
-            Comprobante de registro
+        <View style={styles.campo}>
+          <Text style={styles.etiqueta}>
+            CANTIDAD DISPONIBLE
           </Text>
 
-          <Text style={styles.avisoTexto}>
-            Conserve este documento como referencia
-            de su producto.
+          <Text style={styles.valor}>
+            {String(producto.cantidad ?? 0)}
           </Text>
         </View>
 
-        {/* Pie */}
+        <View style={styles.linea} />
+
+        {/* Precio */}
+        <View style={styles.campo}>
+          <Text style={styles.etiqueta}>
+            PRECIO UNITARIO
+          </Text>
+
+          <Text style={styles.precio}>
+            {formatoPrecio(producto.precio)}
+          </Text>
+        </View>
+
         <Text style={styles.pie}>
           Generado por Bazar Admin
         </Text>

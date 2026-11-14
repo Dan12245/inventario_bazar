@@ -13,19 +13,52 @@ export default function AgregarProductos({ onProductoAgregado })
     const [descripcion, setDescripcion] = useState("");
     const [cantidad, setCantidad] = useState("");
     const [imagen, setImagen] = useState(null);
+    const [precio, setPrecio] = useState("");
 
     const guardarProducto = async ()=>{
         //revisamos que se hayan llenado los campos necesarios
-        if(!nombre || !cantidad){
+        if (
+            !nombre.trim() ||
+            cantidad === "" ||
+            precio === ""
+            ) {
+                alert("Por favor, llene los campos obligatorios");
+                return;
+            }
 
-            alert("Porfavor llene los campos obligatorios");
+            const cantidadNumero = Number(cantidad);
+            const precioNumero = Number(precio);
 
-            return;
-        }
+            if (
+                !Number.isSafeInteger(cantidadNumero) ||
+                cantidadNumero < 0
+            ) {
+                alert("La cantidad debe ser un número entero mayor o igual a 0");
+                return;
+            }
+
+            if (
+                !/^\d+(\.\d{1,2})?$/.test(precio.trim()) ||
+                !Number.isFinite(precioNumero) ||
+                precioNumero > 99999999.99
+            ) {
+                alert("Ingrese un precio válido con máximo dos decimales");
+                return;
+            }
+        
 
         let imagenRuta = null;
         
         try{
+
+            // Obtenemos la sesión
+            const { data: { session }, error: sessionError } =
+            await supabase.auth.getSession();
+            if (sessionError || !session) {
+                alert("Debes iniciar sesión");
+                return;
+            }
+
             if (imagen){ 
                 //le hacemos un nuevo nombre a nuestra imagen para que este no se repita
                 const nuevoNombre = Date.now()+'-'+imagen.name;
@@ -50,20 +83,14 @@ export default function AgregarProductos({ onProductoAgregado })
 
             //creamos nuestro objeto a mandar a la base de datos
             const productoNuevo={
-                nombre:nombre,
-                descripcion:descripcion,
+                nombre:nombre.trim(),
+                descripcion:descripcion.trim(),
                 cantidad:Number(cantidad),
-                imagen:imagenRuta
+                imagen:imagenRuta,
+                precio: Number(precio)
             };
 
-            // Obtenemos la sesión
-            const { data: { session }, error: sessionError } =
-            await supabase.auth.getSession();
-
-            if (sessionError || !session) {
-                alert("Debes iniciar sesión");
-                return;
-            }
+          
 
             // Enviamos el producto a nuestro endpoint
             const respuesta = await fetch('/api/productos', {
@@ -87,8 +114,9 @@ export default function AgregarProductos({ onProductoAgregado })
                 setNombre("");
                 setDescripcion("");
                 setCantidad("");
-                setImagen("");
+                setImagen(null);
                 setIsOpen(false);
+                setPrecio("");
                 await onProductoAgregado();
                 return;
 
@@ -184,6 +212,20 @@ return (
                     onChange={(e) => setCantidad(e.target.value)}
                     className="w-full bg-[#10151E] border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-violet-500"
                 />
+                </div>
+                <div>
+                    <label htmlFor="precio" className="block text-sm text-gray-300 mb-2">Precio (MXN)*</label>
+                    <input
+                    id="precio"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={precio}
+                    onChange={(e) => setPrecio(e.target.value)}
+                    placeholder="Ej. 250.00"
+                    className="w-full bg-[#10151E] border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-violet-500"
+
+                    />
                 </div>
 
                 <div>

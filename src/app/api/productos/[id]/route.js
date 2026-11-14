@@ -68,16 +68,21 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    const { nombre, descripcion, cantidad, imagen } = producto;
+    const { nombre, descripcion, cantidad, imagen, precio } = producto;
 
     // Validamos los campos obligatorios
     if (
-      typeof nombre !== 'string' ||
-      !nombre.trim() ||
-      !Number.isSafeInteger(cantidad) ||
-      cantidad < 0 ||
-      (descripcion != null && typeof descripcion !== 'string') ||
-      (imagen != null && typeof imagen !== 'string')
+          typeof nombre !== "string" ||
+          !nombre.trim() ||
+          !Number.isSafeInteger(cantidad) ||
+          cantidad < 0 ||
+          typeof precio !== "number" ||
+          !Number.isFinite(precio) ||
+          precio < 0 ||
+          precio > 99999999.99 ||
+          !/^\d+(\.\d{1,2})?$/.test(String(precio)) ||
+          (descripcion != null && typeof descripcion !== "string") ||
+          (imagen != null && typeof imagen !== "string")
     ) {
       return Response.json(
         { error: 'Datos del producto inválidos' },
@@ -89,7 +94,8 @@ export async function PATCH(request, { params }) {
     const cambios = {
       nombre: nombre.trim(),
       descripcion: descripcion ?? '',
-      cantidad
+      cantidad,
+      precio
     };
 
     // Solo modificamos la imagen si recibimos una nueva

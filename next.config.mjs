@@ -3,7 +3,7 @@ const nextConfig = {
   /* config options here */
   reactCompiler: true,
   allowedDevOrigins: [
-    "ministers-smaller-beans-inner.trycloudflare.com",
+    "defense-village-tone-achieving.trycloudflare.com",
   ],
 };
 

@@ -130,6 +130,15 @@ export default function Home() {
     0
   );
 
+  const formatoPrecio = (precio) => {
+  if (precio == null) return "Sin precio";
+
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN"
+  }).format(precio);
+};
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#0B0E14] text-gray-100">
 
@@ -243,6 +252,10 @@ export default function Home() {
                   </th>
 
                   <th className="p-4 font-medium text-center">
+                    Precio
+                  </th>
+
+                  <th className="p-4 font-medium text-center">
                     Cantidad
                   </th>
 
@@ -281,6 +294,10 @@ export default function Home() {
                     {/* Nombre */}
                     <td className="p-4 text-left font-medium text-white">
                       {item.nombre}
+                    </td>
+
+                    <td className="p-4 text-center text-gray-300">
+                      {formatoPrecio(item.precio)}
                     </td>
 
                     {/* Cantidad */}
@@ -322,6 +339,7 @@ export default function Home() {
                           cantActual={item.cantidad}
                           imgActual={item.imagen}
                           onProductoEditado={traerProductos}
+                          precioActual={item.precio}
                         />
 
                         {/* Retirar */}

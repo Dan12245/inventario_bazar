@@ -1,29 +1,229 @@
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { crearSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { procesarMensaje } from "@/lib/chatbot";
+import { procesarMensaje, menu } from "@/lib/chatbot";
 
 export const runtime = "nodejs";
 
-// Enviar la respuesta a WhatsApp
-async function enviarMensaje(numero, texto) {
-   // Normalizar números mexicanos para el envío
-const destinatario = /^521\d{10}$/.test(numero)
-  ? `52${numero.slice(3)}`
-  : numero;
-  if (
-  process.env.NODE_ENV === "development" &&
-  process.env.WHATSAPP_DRY_RUN === "true"
-) 
-{
- 
-  console.log("🧪 WhatsApp simulado:", {
-    numero,
-    respuesta: texto
-  });
+// Convertir la respuesta del chatbot en un mensaje de Meta
 
-  return;
+async function construirMensaje(respuesta, supabase, numero) {
+
+  // 1. Menú principal con botones
+  if (respuesta === menu) {
+    return {
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: {
+          text: "¡Hola! 👋 Bienvenido al bazar.\n\n¿Qué deseas hacer?"
+        },
+        action: {
+          buttons: [
+            {
+              type: "reply",
+              reply: {
+                id: "menu_consultar",
+                title: "Consultar productos"
+              }
+            },
+            {
+              type: "reply",
+              reply: {
+                id: "menu_apartar",
+                title: "Apartar producto"
+              }
+            },
+            {
+              type: "reply",
+              reply: {
+                id: "menu_personal",
+                title: "Hablar con personal"
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  // 2. Lista interactiva cuando hay resultados de búsqueda
+  if (respuesta.startsWith("Encontré estos productos:")) {
+
+    // Recuperar los IDs que el chatbot ofreció
+    const { data: conversacion, error: errorConversacion } =
+      await supabase
+        .from("conversaciones_whatsapp")
+        .select("estado, opciones_producto")
+        .eq("telefono", numero)
+        .single();
+
+    if (errorConversacion) throw errorConversacion;
+
+    if (conversacion.estado === "seleccionando_producto") {
+      const ids = conversacion.opciones_producto ?? [];
+
+      if (ids.length > 0) {
+        // Recuperar los productos ofrecidos
+        const { data: productos, error: errorProductos } =
+          await supabase
+            .from("productos")
+            .select("id, nombre, cantidad")
+            .in("id", ids)
+            .eq("activo", true)
+            .gt("cantidad", 0);
+
+        if (errorProductos) throw errorProductos;
+
+        // Mantener el orden de las opciones originales
+        const filas = ids
+          .map((id) => productos.find((p) => p.id === id))
+          .filter(Boolean)
+          .slice(0, 5)
+          .map((producto) => ({
+            id: `producto_${producto.id}`,
+            title: producto.nombre.slice(0, 24),
+            description:
+              `${producto.cantidad} unidades disponibles`
+          }));
+
+        if (filas.length > 0) {
+          return {
+            type: "interactive",
+            interactive: {
+              type: "list",
+              body: {
+                text: "Encontré estos productos. 👇\n\nSelecciona el que te interesa."
+              },
+              action: {
+                button: "Ver productos",
+                sections: [
+                  {
+                    title: "Disponibles",
+                    rows: filas
+                  }
+                ]
+              }
+            }
+          };
+        }
+      }
+    }
+  }
+
+// Mostrar botones cuando el cliente elige un producto
+const { data: conversacionActual, error: errorEstado } =
+  await supabase
+    .from("conversaciones_whatsapp")
+    .select("estado")
+    .eq("telefono", numero)
+    .single();
+
+if (errorEstado) throw errorEstado;
+
+if (
+  conversacionActual.estado === "confirmando_interes" &&
+  respuesta.includes("¿Deseas apartar este producto?")
+) {
+  // Quitar las opciones numéricas del texto
+  const textoBotones = respuesta
+    .replace(/\n\s*1\.\s*Sí\s*\n\s*2\.\s*No\s*$/i, "")
+    .trim();
+
+  return {
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: {
+        text: textoBotones
+      },
+      action: {
+        buttons: [
+          {
+            type: "reply",
+            reply: {
+              id: "interes_si",
+              title: "Sí, apartar"
+            }
+          },
+          {
+            type: "reply",
+            reply: {
+              id: "interes_no",
+              title: "No, regresar"
+            }
+          }
+        ]
+      }
+    }
+  };
 }
+
+
+// Botones para confirmar o cancelar el apartado
+if (
+  conversacionActual.estado === "confirmando_apartado" &&
+  respuesta.includes("¿Confirmas tu apartado?")
+) {
+  const textoBotones = respuesta
+    .replace(
+      /\n\s*1\.\s*Confirmar\s*\n\s*2\.\s*Cancelar\s*$/i,
+      ""
+    )
+    .trim();
+
+  return {
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: {
+        text: textoBotones
+      },
+      action: {
+        buttons: [
+          {
+            type: "reply",
+            reply: {
+              id: "apartado_confirmar",
+              title: "Confirmar"
+            }
+          },
+          {
+            type: "reply",
+            reply: {
+              id: "apartado_cancelar",
+              title: "Cancelar"
+            }
+          }
+        ]
+      }
+    }
+  };
+}
+
+
+
+  // 3. Mensajes normales
+  return {
+    type: "text",
+    text: {
+      body: respuesta
+    }
+  };
+}
+
+
+// Enviar o simular un mensaje de WhatsApp
+async function enviarMensaje(numero, contenido) {
+
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.WHATSAPP_DRY_RUN === "true"
+  ) {
+    console.log("🧪 WhatsApp simulado:");
+    console.log(JSON.stringify(contenido, null, 2));
+    return;
+  }
 
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -32,6 +232,11 @@ const destinatario = /^521\d{10}$/.test(numero)
   if (!token || !phoneNumberId || !version) {
     throw new Error("Faltan variables de WhatsApp.");
   }
+
+  // Normalización del número mexicano
+  const destinatario = /^521\d{10}$/.test(numero)
+    ? `52${numero.slice(3)}`
+    : numero;
 
   const respuesta = await fetch(
     `https://graph.facebook.com/${version}/${phoneNumberId}/messages`,
@@ -45,10 +250,7 @@ const destinatario = /^521\d{10}$/.test(numero)
         messaging_product: "whatsapp",
         recipient_type: "individual",
         to: destinatario,
-        type: "text",
-        text: {
-          body: texto
-        }
+        ...contenido
       })
     }
   );
@@ -61,13 +263,40 @@ const destinatario = /^521\d{10}$/.test(numero)
   }
 
   console.log(
-    "Respuesta enviada:",
+    "Respuesta aceptada por Meta:",
     resultado.messages?.[0]?.id
   );
 }
 
-// Actualizar el estado de un mensaje recibido
-async function actualizarMensaje(supabase, mensajeId, estado) {
+// Guardar la respuesta y el mensaje completo
+async function guardarRespuesta(
+  supabase,
+  mensajeId,
+  respuesta,
+  contenido
+) {
+  const { data, error } = await supabase
+    .from("mensajes_whatsapp")
+    .update({
+      respuesta,
+      mensaje_salida: contenido,
+      estado: "pendiente_envio",
+      updated_at: new Date().toISOString()
+    })
+    .eq("mensaje_id", mensajeId)
+    .eq("estado", "procesando")
+    .select("mensaje_id")
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!data) {
+    throw new Error("No se pudo guardar la respuesta.");
+  }
+}
+
+// Cambiar el estado de procesamiento de un mensaje
+async function actualizarEstado(supabase, mensajeId, estado) {
   const { error } = await supabase
     .from("mensajes_whatsapp")
     .update({
@@ -79,7 +308,7 @@ async function actualizarMensaje(supabase, mensajeId, estado) {
   if (error) throw error;
 }
 
-// Verificación inicial del webhook
+// Verificación inicial del webhook por Meta
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
 
@@ -95,9 +324,7 @@ export async function GET(request) {
   ) {
     console.log("Webhook de WhatsApp verificado");
 
-    return new Response(challenge, {
-      status: 200
-    });
+    return new Response(challenge, { status: 200 });
   }
 
   return new Response("Verificación fallida", {
@@ -105,7 +332,7 @@ export async function GET(request) {
   });
 }
 
-// Recibir mensajes de Meta
+// Recibir eventos de WhatsApp
 export async function POST(request) {
   try {
     const appSecret = process.env.WHATSAPP_APP_SECRET;
@@ -113,12 +340,9 @@ export async function POST(request) {
     const cuerpo = await request.text();
 
     if (!appSecret || !firma) {
-      return new Response("No autorizado", {
-        status: 401
-      });
+      return new Response("No autorizado", { status: 401 });
     }
 
-    // Verificar que el mensaje venga de Meta
     const firmaEsperada =
       "sha256=" +
       createHmac("sha256", appSecret)
@@ -144,57 +368,120 @@ export async function POST(request) {
       for (const cambio of entrada.changes ?? []) {
         for (const mensaje of cambio.value?.messages ?? []) {
 
-          // De momento solo atendemos mensajes de texto
-          if (mensaje.type !== "text") continue;
-
           const mensajeId = mensaje.id;
           const numero = mensaje.from;
-          const texto = mensaje.text?.body?.trim();
+          let texto;
+
+          // Leer mensajes escritos o botones interactivos
+          if (mensaje.type === "text") {
+            texto = mensaje.text?.body?.trim();
+
+          } else if (mensaje.type === "interactive") {
+            const id =
+              mensaje.interactive?.button_reply?.id ??
+              mensaje.interactive?.list_reply?.id;
+
+            if (id?.startsWith("producto_")) {
+              // Convertir "producto_21" en "21"
+              texto = id.slice("producto_".length);
+            } else {
+              // Mantener los IDs del menú
+              texto = id;
+            }
+          }
 
           if (!mensajeId || !numero || !texto) {
             continue;
           }
 
-          // Reclamar el mensaje de forma atómica
-          const { data: procesar, error: errorRegistro } =
-            await supabase.rpc("iniciar_mensaje_whatsapp", {
+          // Reclamar el mensaje en PostgreSQL
+          const { data: registros, error: errorRegistro } =
+            await supabase.rpc("reclamar_mensaje_whatsapp", {
               p_mensaje_id: mensajeId,
               p_telefono: numero
             });
 
-          if (errorRegistro) {
-            throw errorRegistro;
-          }
+          if (errorRegistro) throw errorRegistro;
 
-          if (!procesar) {
+          const registro = registros?.[0];
+
+          if (!registro?.aceptado) {
             console.log(
               "Mensaje duplicado o en procesamiento:",
               mensajeId
             );
-
             continue;
           }
 
           try {
-            console.log("Procesando mensaje:", {
-              mensajeId,
-              numero,
-              texto
-            });
+            let respuesta = registro.respuesta_guardada;
+            let contenido;
 
-            // ¡Aquí utilizamos nuestro chatbot real!
-            const respuesta = await procesarMensaje(
-              numero,
-              texto
+            if (respuesta !== null && respuesta !== undefined) {
+              // Reutilizar la respuesta original
+              console.log(
+                "Reutilizando respuesta guardada:",
+                mensajeId
+              );
+
+              const { data: guardado, error } = await supabase
+                .from("mensajes_whatsapp")
+                .select("mensaje_salida")
+                .eq("mensaje_id", mensajeId)
+                .single();
+
+              if (error) throw error;
+
+              // Compatibilidad con mensajes anteriores
+              contenido =
+              guardado?.mensaje_salida ??
+              await construirMensaje(respuesta, supabase, numero);
+
+            } else {
+              // Procesar un mensaje nuevo
+              console.log("Procesando mensaje nuevo:", {
+                mensajeId,
+                numero,
+                texto
+              });
+
+              respuesta = await procesarMensaje(
+                numero,
+                texto
+              );
+
+              if (typeof respuesta !== "string") {
+                throw new Error(
+                  "El chatbot no devolvió una respuesta válida."
+                );
+              }
+
+            contenido = await construirMensaje(
+              respuesta,
+              supabase,
+              numero
             );
+              // Guardar antes de intentar enviar
+              await guardarRespuesta(
+                supabase,
+                mensajeId,
+                respuesta,
+                contenido
+              );
+            }
 
-            await enviarMensaje(numero, respuesta);
+            // Enviar el mismo contenido que quedó guardado
+            await enviarMensaje(numero, contenido);
 
-            // El procesamiento terminó correctamente
-            await actualizarMensaje(
+            await actualizarEstado(
               supabase,
               mensajeId,
               "completado"
+            );
+
+            console.log(
+              "Mensaje completado:",
+              mensajeId
             );
 
           } catch (error) {
@@ -204,16 +491,15 @@ export async function POST(request) {
               error
             );
 
-            // Permitir reintentar el mismo mensaje
             try {
-              await actualizarMensaje(
+              await actualizarEstado(
                 supabase,
                 mensajeId,
                 "fallido"
               );
             } catch (errorEstado) {
               console.error(
-                "No se pudo marcar el mensaje como fallido:",
+                "Error actualizando estado:",
                 errorEstado
               );
             }
@@ -231,7 +517,6 @@ export async function POST(request) {
   } catch (error) {
     console.error("Error en webhook:", error);
 
-    // Meta puede reintentar la entrega
     return new Response("Error interno", {
       status: 500
     });

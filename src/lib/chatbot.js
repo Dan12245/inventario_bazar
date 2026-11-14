@@ -2,7 +2,7 @@
 import { crearSupabaseAdmin } from "@/lib/supabaseAdmin";
 //import {randomUUID} from "node:crypto";
 
-const menu = `¡Hola! 👋 Bienvenido al bazar.
+export const menu = `¡Hola! 👋 Bienvenido al bazar.
 
 ¿En qué podemos ayudarte?
 
@@ -12,7 +12,7 @@ const menu = `¡Hola! 👋 Bienvenido al bazar.
 
 export async function procesarMensaje(telefono, texto) {
   const supabase = crearSupabaseAdmin();
-  const mensaje = texto.trim().toLowerCase();
+  let mensaje = texto.trim().toLowerCase();
 
   // Crear una conversación si el teléfono es nuevo
   const { error: upsertError } = await supabase
@@ -38,6 +38,24 @@ export async function procesarMensaje(telefono, texto) {
     .single();
 
   if (error) throw error;
+
+  // Interpretar los botones del menú principal
+const opcionesMenu = {
+  menu_consultar: "1",
+  menu_apartar: "2",
+  menu_personal: "3"
+};
+
+if (Object.hasOwn(opcionesMenu, mensaje)) {
+  // Rechazar botones antiguos pulsados fuera del menú
+  if (conversacion.estado !== "menu") {
+    return `Este botón pertenece a un menú anterior.
+
+Escribe "menu" para regresar al menú principal.`;
+  }
+
+  mensaje = opcionesMenu[mensaje];
+}
 
   // Actualizar el estado y los datos de la conversación
   async function cambiarEstado(nuevoEstado, cambios = {}) {
@@ -169,7 +187,7 @@ Cantidad disponible: ${producto.cantidad}
 
   // 3. Estamos esperando Sí o No
   if (conversacion.estado === "confirmando_interes") {
-    if (mensaje === "1" || mensaje === "si" || mensaje === "sí") {
+    if (mensaje === "1" || mensaje === "si" || mensaje === "sí" || mensaje==="interes_si") {
         const solicitudId = crypto.randomUUID();
    await cambiarEstado("esperando_cantidad", {
     solicitud_id: solicitudId,
@@ -180,15 +198,13 @@ Cantidad disponible: ${producto.cantidad}
   return "¡Perfecto! 😄 ¿Cuántas unidades deseas apartar?";
     }
 
-    if (mensaje === "2" || mensaje === "no") {
+    if (mensaje === "2" || mensaje === "no" || mensaje==="interes_no") {
       await cambiarEstado("menu", {
         id_producto: null,
         opciones_producto: []
       });
 
-      return `Entendido, no se registró ningún apartado.
-
-${menu}`;
+      return menu;
     }
 
     return `Responde:
@@ -240,7 +256,7 @@ Cantidad: ${conversacion.cantidad}
 if (conversacion.estado === "confirmando_apartado") {
 
   // El cliente confirma su apartado
-  if (mensaje === "1" || mensaje === "confirmar") {
+  if (mensaje === "1" || mensaje === "confirmar" || mensaje==="apartado_confirmar") {
 
     // Comprobar que tenemos todos los datos
     if (
@@ -338,7 +354,7 @@ Escribe "menu" para regresar.`;
   }
 
   // El cliente cancela
-  if (mensaje === "2" || mensaje === "cancelar") {
+  if (mensaje === "2" || mensaje === "cancelar" || mensaje === "apartado_cancelar") {
     await cambiarEstado("menu", {
       id_producto: null,
       cantidad: null,
@@ -347,11 +363,7 @@ Escribe "menu" para regresar.`;
       solicitud_id: null
     });
 
-    return `Se canceló tu solicitud.
-
-No se realizó ningún apartado.
-
-${menu}`;
+    return menu;
   }
 
   return `No entendí tu respuesta 😅.

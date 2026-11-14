@@ -4,37 +4,54 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useState } from "react";
 
-export default function EditarProducto({id, nombreActual, descActual, cantActual, imgActual, onProductoEditado, }){
+export default function EditarProducto({id, nombreActual, descActual, cantActual, imgActual, onProductoEditado, precioActual}){
 
     const router = useRouter();
     const [isOpen, setIsOpen] = useState (false);
     const [nombre, setNombre] = useState(nombreActual || "");
     const [descripcion, setDescripcion] = useState(descActual || "");
-    const [cantidad, setCantidad] = useState(cantActual || "");
+    const [cantidad, setCantidad] = useState( String(cantActual ?? ""));
     const [imagen, setImagen] = useState(null);
-    //variable para cambiar la tabla donde se hacen las queries
-    const tabla = 'productos'
+    const [precio, setPrecio] = useState(precioActual == null ? "" : String(precioActual))
     
     const abrirModal = () => {
             setNombre(nombreActual ?? "");
             setDescripcion(descActual ?? "");
-            setCantidad(cantActual ?? "");
+            setCantidad(String(cantActual ?? ""));
+            setPrecio(precioActual == null ? "" : String(precioActual));
             setImagen(null);
             setIsOpen(true);
         };
 
     const editarProducto = async () => {
-    if (!nombre.trim() || cantidad === "") {
-        alert("Por favor, llene los campos obligatorios");
-        return;
-    }
+     if (
+            !nombre.trim() ||
+            cantidad === "" ||
+            precio === ""
+            ) {
+                alert("Por favor, llene los campos obligatorios");
+                return;
+            }
 
-    const cantidadNumero = Number(cantidad);
+            const cantidadNumero = Number(cantidad);
+            const precioNumero = Number(precio);
 
-    if (!Number.isSafeInteger(cantidadNumero) || cantidadNumero < 0) {
-        alert("La cantidad debe ser un número entero no negativo");
-        return;
-    }
+            if (
+                !Number.isSafeInteger(cantidadNumero) ||
+                cantidadNumero < 0
+            ) {
+                alert("La cantidad debe ser un número entero mayor o igual a 0");
+                return;
+            }
+
+            if (
+                !/^\d+(\.\d{1,2})?$/.test(precio.trim()) ||
+                !Number.isFinite(precioNumero) ||
+                precioNumero > 99999999.99
+            ) {
+                alert("Ingrese un precio válido con máximo dos decimales");
+                return;
+            }
 
     let nuevaImagenNombre = null;
 
@@ -72,9 +89,10 @@ export default function EditarProducto({id, nombreActual, descActual, cantActual
 
         // Construimos los datos para el PATCH
         const productoEditado = {
-        nombre,
-        descripcion,
-        cantidad: cantidadNumero
+        nombre:nombre.trim(),
+        descripcion: descripcion.trim(),
+        cantidad: cantidadNumero,
+        precio: precioNumero
         };
 
         if (imagenRuta) {
@@ -258,6 +276,21 @@ return (
                     onChange={(e) => setCantidad(e.target.value)}
                     className="w-full bg-[#10151E] border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-violet-500"
                 />
+                </div>
+
+                <div>
+                    <label htmlFor="precio" className="block text-sm text-gray-300 mb-2">Precio (MXN)*</label>
+                    <input
+                    id="precio"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={precio}
+                    onChange={(e) => setPrecio(e.target.value)}
+                    placeholder="Ej. 250.00"
+                    className="w-full bg-[#10151E] border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-violet-500"
+
+                    />
                 </div>
 
                 {/* Imagen actual */}

@@ -108,16 +108,21 @@ export async function POST(request) {
     }
     const producto = await request.json();
 
-    const { nombre, descripcion, cantidad, imagen } = producto;
+    const { nombre, descripcion, cantidad, imagen, precio } = producto;
 
     // 6. Validamos los datos
     if (
-      typeof nombre !== 'string' ||
+      typeof nombre !== "string" ||
       !nombre.trim() ||
       !Number.isSafeInteger(cantidad) ||
       cantidad < 0 ||
-      (descripcion != null && typeof descripcion !== 'string') ||
-      (imagen != null && typeof imagen !== 'string')
+      typeof precio !== "number" ||
+      !Number.isFinite(precio) ||
+      precio < 0 ||
+      precio > 99999999.99 ||
+      !/^\d+(\.\d{1,2})?$/.test(String(precio)) ||
+      (descripcion != null && typeof descripcion !== "string") ||
+      (imagen != null && typeof imagen !== "string")
     ) {
       return Response.json(
         { error: 'Datos del producto inválidos' },
@@ -132,7 +137,8 @@ export async function POST(request) {
         nombre: nombre.trim(),
         descripcion: descripcion ?? '',
         cantidad,
-        imagen: imagen || null
+        imagen: imagen || null,
+        precio:precio
       })
       .select()
       .single();
@@ -149,7 +155,7 @@ export async function POST(request) {
     // 8. Devolvemos el producto creado
     return Response.json(data, { status: 201 });
   }catch(e){
-      console.error('Error en POST:', error);
+      console.error('Error en POST:', e);
 
     return Response.json(
       { error: 'Error al procesar la solicitud' },
