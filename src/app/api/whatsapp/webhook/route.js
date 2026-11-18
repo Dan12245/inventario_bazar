@@ -68,7 +68,7 @@ async function construirMensaje(respuesta, supabase, numero) {
         const { data: productos, error: errorProductos } =
           await supabase
             .from("productos")
-            .select("id, nombre, cantidad")
+            .select("id, nombre, precio, cantidad")
             .in("id", ids)
             .eq("activo", true)
             .gt("cantidad", 0);
@@ -83,8 +83,9 @@ async function construirMensaje(respuesta, supabase, numero) {
           .map((producto) => ({
             id: `producto_${producto.id}`,
             title: producto.nombre.slice(0, 24),
-            description:
-              `${producto.cantidad} unidades disponibles`
+            description: producto.precio == null
+              ? `${producto.cantidad} disponibles · Sin precio`
+              : `${producto.cantidad} disponibles · $${Number(producto.precio).toFixed(2)} MXN`
           }));
 
         if (filas.length > 0) {

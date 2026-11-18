@@ -33,7 +33,7 @@ export async function procesarMensaje(telefono, texto) {
   // Recuperar la conversación actual
   const { data: conversacion, error } = await supabase
     .from("conversaciones_whatsapp")
-    .select("estado, id_producto, cantidad, opciones_producto, nombre_cliente, solicitud_id")
+    .select("estado, id_producto, cantidad, opciones_producto, nombre_cliente, solicitud_id, precio_unitario")
     .eq("telefono", telefono)
     .single();
 
@@ -77,7 +77,10 @@ Escribe "menu" para regresar al menú principal.`;
       id_producto: null,
       opciones_producto: [],
       cantidad: null,
-      nombre_cliente: null
+      nombre_cliente: null,
+       solicitud_id: null,
+      precio_unitario: null
+      
     });
 
     return menu;
@@ -89,7 +92,7 @@ Escribe "menu" para regresar al menú principal.`;
 
     const { data: productos, error } = await supabase
       .from("productos")
-      .select("id, nombre, cantidad")
+      .select("id, nombre, cantidad, precio")
       .eq("activo", true)
       .gt("cantidad", 0)
       .ilike("nombre", `%${busqueda}%`)
@@ -147,7 +150,7 @@ Escribe uno de los IDs de la lista o "menu" para regresar.`;
     // Verificar que el producto siga disponible
     const { data: producto, error } = await supabase
       .from("productos")
-      .select("id, nombre, cantidad")
+      .select("id, nombre, cantidad, precio")
       .eq("id", idProducto)
       .eq("activo", true)
       .gt("cantidad", 0)
@@ -168,10 +171,14 @@ Escribe uno de los IDs de la lista o "menu" para regresar.`;
 
 Escribe otro nombre para buscar nuevamente.`;
     }
+    if (producto.precio === null) {
+      return "Este producto todavía no tiene un precio registrado. Comunícate con el personal del bazar.";
+    }
 
     // Guardar el producto seleccionado
     await cambiarEstado("confirmando_interes", {
       id_producto: producto.id,
+      precio_unitario: producto.precio,
       opciones_producto: []
     });
 
@@ -240,10 +247,21 @@ if (conversacion.estado === "esperando_nombre") {
     nombre_cliente: nombre
   });
 
+  const precioUnitario = Number(conversacion.precio_unitario);
+  const total = precioUnitario * Number(conversacion.cantidad);
+
+  const formatoMoneda = new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN"
+  });
+
   return `¡Perfecto! 😄
 
-Nombre: ${nombre}
-Cantidad: ${conversacion.cantidad}
+  Nombre: ${nombre}
+  Cantidad: ${conversacion.cantidad}
+  Precio por unidad: ${formatoMoneda.format(precioUnitario)}
+
+  Total: ${formatoMoneda.format(total)}
 
 ¿Confirmas tu apartado?
 
@@ -278,7 +296,8 @@ Escribe "menu" para comenzar nuevamente.`;
         p_cliente: conversacion.nombre_cliente,
         p_telefono: telefono,
         p_cantidad: conversacion.cantidad,
-        p_solicitud_id: conversacion.solicitud_id
+        p_solicitud_id: conversacion.solicitud_id,
+        p_precio_unitario: conversacion.precio_unitario
       });
 
     if (errorApartado) {
@@ -328,6 +347,7 @@ o "2" para cancelar.`;
         nombre_cliente: null,
         opciones_producto: [],
         solicitud_id: null,
+        precio_unitario: null,
         updated_at: new Date().toISOString()
       })
       .eq("telefono", telefono)
@@ -360,7 +380,8 @@ Escribe "menu" para regresar.`;
       cantidad: null,
       nombre_cliente: null,
       opciones_producto: [],
-      solicitud_id: null
+      solicitud_id: null,
+      precio_unitario:null
     });
 
     return menu;

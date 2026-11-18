@@ -3,7 +3,7 @@ const nextConfig = {
   /* config options here */
   reactCompiler: true,
   allowedDevOrigins: [
-    "defense-village-tone-achieving.trycloudflare.com",
+    "jungle-honolulu-klein-tenant.trycloudflare.com",
   ],
 };
 
