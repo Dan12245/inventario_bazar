@@ -16,6 +16,8 @@ export default function ApartarProducto({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
+  const solicitudRef=useRef(null);
+
   // Evitar envíos duplicados
   const enviandoRef = useRef(false);
 
@@ -28,6 +30,7 @@ export default function ApartarProducto({
     setCantidad("1");
     setError("");
     setIsOpen(true);
+    solicitudRef.current=crypto.randomUUID();
   };
 
   // Cerrar el modal
@@ -110,7 +113,8 @@ export default function ApartarProducto({
           id_producto: producto.id,
           cliente: nombreLimpio,
           telefono: telefonoLimpio,
-          cantidad: cantidadNumero
+          cantidad: cantidadNumero,
+          solicitud_id:solicitudRef.current
         })
       });
 

@@ -1,43 +1,59 @@
-
 "use client";
 
-import { PDFDownloadLink } from "@react-pdf/renderer";
-import EtiquetaPDF from "./EtiquetaPDF";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
+// Genera la etiqueta SOLO al hacer clic (antes se generaba un PDF por fila al cargar la tabla)
 export default function BotonPDF({ producto }) {
-  const [isClient, setIsClient] = useState(false);
+  const [generando, setGenerando] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const descargar = async () => {
+    if (generando) return;
 
-  if (!isClient) return null;
+    setGenerando(true);
+
+    try {
+      const [{ pdf }, { default: EtiquetaPDF }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("./EtiquetaPDF")
+      ]);
+
+      const blob = await pdf(<EtiquetaPDF producto={producto} />).toBlob();
+      const url = URL.createObjectURL(blob);
+
+      const enlace = document.createElement("a");
+      enlace.href = url;
+      enlace.download = `etiqueta-${producto.id}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error generando la etiqueta:", error);
+      alert("No se pudo generar la etiqueta");
+    } finally {
+      setGenerando(false);
+    }
+  };
 
   return (
-    <PDFDownloadLink
-      document={<EtiquetaPDF producto={producto} />}
-      fileName={`etiqueta-${producto.id}.pdf`}
+    <button
+      type="button"
+      onClick={descargar}
+      disabled={generando}
       title="Descargar etiqueta PDF"
-      className="inline-flex items-center justify-center w-9 h-9 rounded-lg hover:bg-violet-500/15 transition-colors"
+      aria-label={`Descargar etiqueta de ${producto.nombre}`}
+      className="inline-flex items-center justify-center w-9 h-9 rounded-lg hover:bg-violet-500/15 transition-colors disabled:opacity-40"
     >
-      {({ loading, error }) =>
-        loading ? (
-          <span className="text-xs text-gray-400">
-            ...
-          </span>
-        ) : error ? (
-          <span className="text-red-400" title="Error al generar PDF">
-            !
-          </span>
-        ) : (
-          <img
-            src="/pdf.png"
-            alt={`Descargar etiqueta de ${producto.nombre}`}
-            className="w-6 h-6 hover:scale-110 transition-transform"
-          />
-        )
-      }
-    </PDFDownloadLink>
+      {generando ? (
+        <span className="text-xs text-gray-400">...</span>
+      ) : (
+        <img
+          src="/pdf.png"
+          alt=""
+          className="w-6 h-6 hover:scale-110 transition-transform"
+        />
+      )}
+    </button>
   );
 }

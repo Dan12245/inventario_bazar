@@ -48,6 +48,7 @@ export default function AgregarProductos({ onProductoAgregado })
         
 
         let imagenRuta = null;
+        let nuevoNombre = null;
         
         try{
 
@@ -59,27 +60,29 @@ export default function AgregarProductos({ onProductoAgregado })
                 return;
             }
 
-            if (imagen){ 
-                //le hacemos un nuevo nombre a nuestra imagen para que este no se repita
-                const nuevoNombre = Date.now()+'-'+imagen.name;
-                //le mandamos la imagen a un bucket de supabase para que este la guarde y nos traemos la ruta
-                const {data:dataImagen, error:errorImagen} =
-                    await supabase.storage.
-                    from('imagenes-productos').
-                    upload(nuevoNombre,imagen);
-                    
-                    //revisamos que se haya subido y nos traemos el url
-                    if(errorImagen){
-                        alert("No se pudo subir la imagen");
-                        console.log(errorImagen);
-                        return;
-                    }
-                const {data:imagenNombre} = supabase.storage.
-                        from('imagenes-productos').
-                        getPublicUrl(nuevoNombre);
-                 imagenRuta = imagenNombre.publicUrl;
+            if (imagen) {
+                // Nombre único y seguro: solo UUID + extensión
+                const extension =
+                    imagen.name.split(".").pop().toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "jpg";
+
+                nuevoNombre = `${crypto.randomUUID()}.${extension}`;
+
+                const { error: errorImagen } = await supabase.storage
+                    .from("imagenes-productos")
+                    .upload(nuevoNombre, imagen);
+
+                if (errorImagen) {
+                    alert("No se pudo subir la imagen");
+                    console.error(errorImagen);
+                    return;
+                }
+
+                const { data: imagenNombre } = supabase.storage
+                    .from("imagenes-productos")
+                    .getPublicUrl(nuevoNombre);
+
+                imagenRuta = imagenNombre.publicUrl;
             }
-           
 
             //creamos nuestro objeto a mandar a la base de datos
             const productoNuevo={
@@ -124,6 +127,7 @@ export default function AgregarProductos({ onProductoAgregado })
         }catch(e){
 
             console.log("Error",e);
+            alert("Ocurrió un error al guardar el producto.")
 
         }
     };
@@ -214,9 +218,9 @@ return (
                 />
                 </div>
                 <div>
-                    <label htmlFor="precio" className="block text-sm text-gray-300 mb-2">Precio (MXN)*</label>
+                    <label htmlFor="precio_nuevo" className="block text-sm text-gray-300 mb-2">Precio (MXN)*</label>
                     <input
-                    id="precio"
+                    id="precio_nuevo"
                     type="number"
                     min="0"
                     step="0.01"

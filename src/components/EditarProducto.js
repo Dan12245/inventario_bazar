@@ -91,7 +91,7 @@ export default function EditarProducto({id, nombreActual, descActual, cantActual
         const productoEditado = {
         nombre:nombre.trim(),
         descripcion: descripcion.trim(),
-        cantidad: cantidadNumero,
+        ajuste_cantidad: cantidadNumero-Number(actual ?? 0),
         precio: precioNumero
         };
 
@@ -279,9 +279,9 @@ return (
                 </div>
 
                 <div>
-                    <label htmlFor="precio" className="block text-sm text-gray-300 mb-2">Precio (MXN)*</label>
+                    <label htmlFor={`precio-${id}`} className="block text-sm text-gray-300 mb-2">Precio (MXN)*</label>
                     <input
-                    id="precio"
+                    id={`precio-${id}`}
                     type="number"
                     min="0"
                     step="0.01"

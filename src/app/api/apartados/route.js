@@ -1,62 +1,32 @@
-
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import {
+  autenticar,
+  leerJson,
+  respuestaErrorDb,
+  responderError
+} from "@/lib/authApi";
 
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const ESTADOS = ["Pendiente", "Entregado", "Cancelado"];
+
+// Registrar un apartado desde el panel
 export async function POST(request) {
   try {
-    // 1. Obtener el token de la solicitud
-    const authorization = request.headers.get("authorization");
+    const { supabase } = await autenticar(request);
 
-    if (!authorization?.startsWith("Bearer ")) {
+    const datos = await leerJson(request);
+
+    if (!datos) {
       return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
+        { error: "Datos de apartado inválidos" },
+        { status: 400 }
       );
     }
 
-    const token = authorization.slice(7);
+    const { id_producto, cliente, telefono, cantidad, solicitud_id } = datos;
 
-    // 2. Crear cliente de Supabase para esta solicitud
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        },
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false
-        }
-      }
-    );
-
-    // 3. Verificar que el usuario exista
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Sesión inválida" },
-        { status: 401 }
-      );
-    }
-
-    // 4. Recibir los datos
-    const datos = await request.json();
-
-    const {
-      id_producto,
-      cliente,
-      telefono,
-      cantidad
-    } = datos ?? {};
-
-    // 5. Validaciones básicas
     if (
       !Number.isSafeInteger(id_producto) ||
       id_producto <= 0 ||
@@ -64,8 +34,11 @@ export async function POST(request) {
       cantidad <= 0 ||
       typeof cliente !== "string" ||
       !cliente.trim() ||
+      cliente.trim().length > 100 ||
       typeof telefono !== "string" ||
-      !telefono.trim()
+      !/^\d{10}$/.test(telefono.trim()) ||
+      typeof solicitud_id !== "string" ||
+      !UUID.test(solicitud_id)
     ) {
       return NextResponse.json(
         { error: "Datos de apartado inválidos" },
@@ -73,34 +46,20 @@ export async function POST(request) {
       );
     }
 
-    // 6. Ejecutar la función PostgreSQL
-    const { data, error } = await supabase.rpc(
-      "registrar_apartado",
-      {
-        p_id_producto: id_producto,
-        p_cliente: cliente.trim(),
-        p_telefono: telefono.trim(),
-        p_cantidad: cantidad
-      }
-    );
+    const { data, error } = await supabase.rpc("registrar_apartado", {
+      p_id_producto: id_producto,
+      p_cliente: cliente.trim(),
+      p_telefono: telefono.trim(),
+      p_cantidad: cantidad,
+      p_solicitud_id: solicitud_id,
+      p_origen: "panel"
+    });
 
     if (error) {
       console.error("Error registrando apartado:", error);
-
-      if (error.code === "P0001") {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json(
-        { error: "No se pudo registrar el apartado" },
-        { status: 500 }
-      );
+      return respuestaErrorDb(error, "No se pudo registrar el apartado");
     }
 
-    // 7. Responder con el ID creado
     return NextResponse.json(
       {
         mensaje: "Apartado registrado correctamente",
@@ -108,65 +67,27 @@ export async function POST(request) {
       },
       { status: 201 }
     );
-
   } catch (error) {
-    console.error("Error inesperado:", error);
-
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return responderError(error, "Error en POST /api/apartados:");
   }
 }
-// ruta get
+
+// Listar apartados (opcional: ?estado=Pendiente)
 export async function GET(request) {
   try {
-    const authorization = request.headers.get("authorization");
+    const { supabase } = await autenticar(request);
 
-    if (!authorization?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
-      );
-    }
+    const estado = new URL(request.url).searchParams.get("estado");
 
-    const token = authorization.slice(7);
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        },
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false
-        }
-      }
-    );
-
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Sesión inválida" },
-        { status: 401 }
-      );
-    }
-
-    const { data, error } = await supabase
+    let consulta = supabase
       .from("apartados")
       .select(`
         id,
         persona_que_aparto,
         numero_persona,
         cantidad_apartada,
+        precio_unitario,
+        precio_total,
         estado,
         created_at,
         id_producto,
@@ -174,7 +95,14 @@ export async function GET(request) {
           nombre
         )
       `)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (ESTADOS.includes(estado)) {
+      consulta = consulta.eq("estado", estado);
+    }
+
+    const { data, error } = await consulta;
 
     if (error) {
       console.error("Error consultando apartados:", error);
@@ -186,13 +114,7 @@ export async function GET(request) {
     }
 
     return NextResponse.json(data);
-
   } catch (error) {
-    console.error("Error inesperado:", error);
-
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return responderError(error, "Error en GET /api/apartados:");
   }
 }

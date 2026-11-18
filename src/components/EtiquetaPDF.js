@@ -11,7 +11,7 @@ const styles = StyleSheet.create({
   page: {
     backgroundColor: "#FFFFFF",
     padding: 15,
-    fontFamily: "Helvetica",
+    fontFamily: "Helvetica-Bold",
     color: "#171C27"
   },
 
@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
 
   nombreBazar: {
     fontSize: 15,
-    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
     marginBottom: 6
   },
 
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
 
   folioNumero: {
     fontSize: 12,
-    fontWeight: "bold"
+    fontFamily: "Helvetica-Bold"
   },
 
   campo: {
@@ -65,12 +65,12 @@ const styles = StyleSheet.create({
 
   valor: {
     fontSize: 11,
-    fontWeight: "bold"
+    fontFamily: "Helvetica-Bold"
   },
 
   precio: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
     color: "#171C27"
   },
 
