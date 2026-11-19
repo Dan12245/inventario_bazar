@@ -15,6 +15,16 @@ export default function AgregarProductos({ onProductoAgregado })
     const [imagen, setImagen] = useState(null);
     const [precio, setPrecio] = useState("");
 
+    const borrarImagenSubida = async () => {
+        if (!nuevoNombre) return;
+
+        const { error } = await supabase.storage
+            .from("imagenes-productos")
+            .remove([nuevoNombre]);
+
+        if (error) console.error("No se pudo limpiar la imagen:", error);
+    };
+
     const guardarProducto = async ()=>{
         //revisamos que se hayan llenado los campos necesarios
         if (
@@ -109,6 +119,7 @@ export default function AgregarProductos({ onProductoAgregado })
             const data = await respuesta.json();
 
             if (!respuesta.ok) {
+                await borrarImagenSubida();
                 console.error("Error al guardar:", data.error);
                 alert(data.error || "No se pudo guardar el producto");
                 return;
@@ -125,7 +136,7 @@ export default function AgregarProductos({ onProductoAgregado })
 
             }
         }catch(e){
-
+            await borrarImagenSubida();
             console.log("Error",e);
             alert("Ocurrió un error al guardar el producto.")
 

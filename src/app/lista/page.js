@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/SideBar";
 import ApartarProducto from "@/components/ApartarProductos";
 import ProductosRetirados from "@/components/ProductosRetirados";
+import { useActualizacionAutomatica } from "@/lib/actualizacionAutomatica";
 
 export default function Home() {
   const router = useRouter();
@@ -42,6 +43,11 @@ export default function Home() {
       });
 
       const data = await respuesta.json();
+
+      if (respuesta.status === 401) {
+        router.replace("/login");
+        return;
+      }
 
       if (!respuesta.ok) {
         console.error(
@@ -101,6 +107,8 @@ export default function Home() {
       activo = false;
     };
   }, [router]);
+  useActualizacionAutomatica(["productos"], traerProductos);
+
 
   // Pantalla de carga
   if (cargando) {

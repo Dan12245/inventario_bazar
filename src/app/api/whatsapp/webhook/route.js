@@ -36,8 +36,7 @@ function construirMensaje(respuesta) {
         action: {
           buttons: [
             { type: "reply", reply: { id: "menu_consultar", title: "Consultar productos" } },
-            { type: "reply", reply: { id: "menu_apartar", title: "Apartar producto" } },
-            { type: "reply", reply: { id: "menu_personal", title: "Hablar con personal" } }
+            { type: "reply", reply: { id: "menu_apartar", title: "Apartar producto" } }
           ]
         }
       }

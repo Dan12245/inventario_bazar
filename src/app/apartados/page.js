@@ -5,6 +5,46 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Sidebar from "@/components/SideBar";
+import { useActualizacionAutomatica } from "@/lib/actualizacionAutomatica";
+
+// Debe coincidir con HORAS_APARTADO del bot y con el cron expirar_apartados(216)
+const HORAS_APARTADO = 216;
+const ZONA_HORARIA = "America/Chihuahua";
+
+const formatoMoneda = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN"
+});
+
+// Fecha límite de un apartado pendiente (null si ya no aplica)
+function vencimiento(apartado) {
+  if (apartado.estado !== "Pendiente") return null;
+
+  const limite = new Date(
+    new Date(apartado.created_at).getTime() + HORAS_APARTADO * 60 * 60 * 1000
+  );
+
+  const restanteMs = limite.getTime() - Date.now();
+
+  const texto = new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: ZONA_HORARIA
+  }).format(limite);
+
+  let clase = "text-gray-300";
+
+  if (restanteMs <= 0) {
+    clase = "text-red-400";          // ya venció (el cron la cancela en la próxima hora)
+  } else if (restanteMs < 24 * 60 * 60 * 1000) {
+    clase = "text-yellow-400";       // vence en menos de 24 horas
+  }
+
+  return { texto, clase };
+}
 
 export default function ApartadosPage() {
   const router = useRouter();
@@ -100,6 +140,11 @@ export default function ApartadosPage() {
 
       const resultado = await respuesta.json();
 
+      if (respuesta.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
       if (!respuesta.ok) {
         throw new Error(
           resultado.error || "No se pudieron cargar los apartados"
@@ -149,6 +194,10 @@ export default function ApartadosPage() {
       activo = false;
     };
   }, [router]);
+
+
+  // Refresca la tabla cuando el bot (u otra persona) cambia un apartado
+  useActualizacionAutomatica(["apartados"], traerApartados);
 
   if (cargando) {
     return (
@@ -272,7 +321,7 @@ export default function ApartadosPage() {
           {/* Tabla con scroll independiente */}
           <div className="flex-1 min-h-0 min-w-0 overflow-auto">
 
-            <table className="w-full min-w-[950px] text-sm">
+            <table className="w-full min-w-[1150px] text-sm">
 
               <thead className="sticky top-0 z-10 bg-[#252B36]">
                 <tr>
@@ -282,6 +331,8 @@ export default function ApartadosPage() {
                   <th className="p-4 font-medium text-left">Producto</th>
                   <th className="p-4 font-medium text-center">Cantidad</th>
                   <th className="p-4 font-medium text-left">Fecha</th>
+                  <th className="p-4 font-medium text-right">Total</th>
+                  <th className="p-4 font-medium text-left">Vence</th>
                   <th className="p-4 font-medium text-center">Estado</th>
                   <th className="p-4 font-medium text-center">Acciones</th>
                 </tr>
@@ -318,6 +369,24 @@ export default function ApartadosPage() {
                       {new Date(apartado.created_at).toLocaleDateString(
                         "es-MX"
                       )}
+                    </td>
+
+                    <td className="p-4 text-right text-gray-300">
+                      {apartado.precio_total == null
+                        ? "—"
+                        : formatoMoneda.format(Number(apartado.precio_total))}
+                    </td>
+
+                    <td className="p-4">
+                      {(() => {
+                        const v = vencimiento(apartado);
+
+                        return v ? (
+                          <span className={v.clase}>{v.texto}</span>
+                        ) : (
+                          <span className="text-gray-500">—</span>
+                        );
+                      })()}
                     </td>
 
                     <td className="p-4 text-center">

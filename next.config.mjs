@@ -3,7 +3,7 @@ const nextConfig = {
   /* config options here */
   reactCompiler: true,
   allowedDevOrigins: [
-    "jungle-honolulu-klein-tenant.trycloudflare.com",
+    "packages-played-perry-kyle.trycloudflare.com",
   ],
 };
 
