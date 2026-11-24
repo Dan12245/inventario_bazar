@@ -35,8 +35,8 @@ function construirMensaje(respuesta) {
         },
         action: {
           buttons: [
-            { type: "reply", reply: { id: "menu_consultar", title: "Consultar productos" } },
-            { type: "reply", reply: { id: "menu_apartar", title: "Apartar producto" } }
+            { type: "reply", reply: { id: "menu_buscar", title: "Buscar y apartar" } },
+            { type: "reply", reply: { id: "menu_apartados", title: "Mis apartados" } }
           ]
         }
       }
@@ -84,7 +84,13 @@ function construirMensaje(respuesta) {
         },
         action: {
           button: "Ver productos",
-          sections: [{ title: "Disponibles", rows: filas }]
+          sections: [
+            { title: "Disponibles", rows: filas },
+            {
+              title: "Otras opciones",
+              rows: [{ id: "volver_menu", title: "Regresar al menú" }]
+            }
+          ]
         }
       }
     };
@@ -197,10 +203,15 @@ async function guardarRespuesta(supabase, mensajeId, respuesta, contenido) {
   }
 }
 
-async function actualizarEstado(supabase, mensajeId, estado) {
+async function actualizarEstado(supabase, mensajeId, estado, detalle = null) {
   const { error } = await supabase
     .from("mensajes_whatsapp")
-    .update({ estado, updated_at: new Date().toISOString() })
+    .update({
+      estado,
+      // Se guarda el motivo del fallo; al completarse se limpia
+      error: detalle ? String(detalle).slice(0, 500) : null,
+      updated_at: new Date().toISOString()
+    })
     .eq("mensaje_id", mensajeId);
 
   if (error) throw error;
@@ -297,7 +308,12 @@ async function procesarUno(supabase, mensaje) {
     console.log("Mensaje completado:", mensajeId);
   } catch (error) {
     try {
-      await actualizarEstado(supabase, mensajeId, "fallido");
+      await actualizarEstado(
+        supabase,
+        mensajeId,
+        "fallido",
+        error?.message ?? String(error)
+      );
     } catch (errorEstado) {
       console.error("Error actualizando estado:", errorEstado);
     }

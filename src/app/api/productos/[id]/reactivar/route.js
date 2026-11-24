@@ -1,60 +1,20 @@
-
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { autenticar, responderError } from "@/lib/authApi";
 
+// Reactivar un producto retirado
 export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
-    const idProducto = Number(id);
+    const idProducto = /^[1-9]\d*$/.test(id) ? Number(id) : NaN;
 
-    if (
-      !Number.isSafeInteger(idProducto) ||
-      idProducto <= 0
-    ) {
+    if (!Number.isSafeInteger(idProducto)) {
       return NextResponse.json(
         { error: "ID de producto inválido" },
         { status: 400 }
       );
     }
 
-    const authorization = request.headers.get("authorization");
-
-    if (!authorization?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
-      );
-    }
-
-    const token = authorization.slice(7);
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        },
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false
-        }
-      }
-    );
-
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Sesión inválida" },
-        { status: 401 }
-      );
-    }
+    const { supabase } = await autenticar(request);
 
     const { data, error } = await supabase
       .from("productos")
@@ -65,7 +25,7 @@ export async function PATCH(request, { params }) {
       .maybeSingle();
 
     if (error) {
-      console.error(error);
+      console.error("Error reactivando producto:", error);
 
       return NextResponse.json(
         { error: "No se pudo reactivar el producto" },
@@ -84,13 +44,7 @@ export async function PATCH(request, { params }) {
       mensaje: "Producto reactivado correctamente",
       producto: data
     });
-
   } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return responderError(error, "Error en PATCH /api/productos/[id]/reactivar:");
   }
 }

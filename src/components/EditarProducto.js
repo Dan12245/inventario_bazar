@@ -91,7 +91,7 @@ export default function EditarProducto({id, nombreActual, descActual, cantActual
         const productoEditado = {
         nombre:nombre.trim(),
         descripcion: descripcion.trim(),
-        ajuste_cantidad: cantidadNumero-Number(actual ?? 0),
+        ajuste_cantidad: cantidadNumero-Number(cantActual ?? 0),
         precio: precioNumero
         };
 

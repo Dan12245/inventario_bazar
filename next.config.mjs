@@ -3,7 +3,7 @@ const nextConfig = {
   /* config options here */
   reactCompiler: true,
   allowedDevOrigins: [
-    "packages-played-perry-kyle.trycloudflare.com",
+    "machinery-prefers-guide-host.trycloudflare.com",
   ],
 };
 

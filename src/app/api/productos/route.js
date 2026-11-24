@@ -1,116 +1,48 @@
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from "next/server";
+import { autenticar, leerJson, responderError } from "@/lib/authApi";
 
+// Listar productos activos
 export async function GET(request) {
   try {
-    // Obtener el token enviado por el frontend para autorizar la sesion del usuario
-    const authorization = request.headers.get('authorization');
+    const { supabase } = await autenticar(request);
 
-    if (!authorization?.startsWith('Bearer ')) {
-      return Response.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-
-    const token = authorization.slice(7);
-
-    // Crear cliente de Supabase para esta petición
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        },
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false
-        }
-      }
-    );
-
-    // Verificar la identidad del usuario
-    const { data: authData, error: authError } =
-      await supabase.auth.getUser(token);
-
-    if (authError || !authData.user) {
-      return Response.json(
-        { error: 'Sesión inválida' },
-        { status: 401 }
-      );
-    }
-
-    // Consultar los productos
     const { data, error } = await supabase
-      .from('productos')
-      .select('*')
+      .from("productos")
+      .select("*")
       .eq("activo", true)
-      .order('id', { ascending: true });
+      .order("id", { ascending: true });
 
     if (error) {
-      throw error;
+      console.error("Error al obtener productos:", error);
+
+      return NextResponse.json(
+        { error: "Error al obtener productos" },
+        { status: 500 }
+      );
     }
 
-    return Response.json(data);
-
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error al obtener productos:', error);
-
-    return Response.json(
-      { error: 'Error al obtener productos' },
-      { status: 500 }
-    );
+    return responderError(error, "Error en GET /api/productos:");
   }
 }
 
+// Crear un producto
 export async function POST(request) {
+  try {
+    const { supabase } = await autenticar(request);
 
-  try{
-    const authorization = request.headers.get('authorization');
+    const producto = await leerJson(request);
 
-    if (!authorization?.startsWith('Bearer ')) {
-      return Response.json(
-        { error: 'No autorizado' },
-        { status: 401 }
+    if (!producto) {
+      return NextResponse.json(
+        { error: "Datos del producto inválidos" },
+        { status: 400 }
       );
     }
-
-    const token = authorization.slice(7);
-
-    // Crear cliente de Supabase para esta petición
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        },
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false
-        }
-      }
-    );
-
-    // Verificar la identidad del usuario
-    const { data: authData, error: authError } =
-      await supabase.auth.getUser(token);
-
-    if (authError || !authData.user) {
-      return Response.json(
-        { error: 'Sesión inválida' },
-        { status: 401 }
-      );
-    }
-    const producto = await request.json();
 
     const { nombre, descripcion, cantidad, imagen, precio } = producto;
 
-    // 6. Validamos los datos
     if (
       typeof nombre !== "string" ||
       !nombre.trim() ||
@@ -124,43 +56,35 @@ export async function POST(request) {
       (descripcion != null && typeof descripcion !== "string") ||
       (imagen != null && typeof imagen !== "string")
     ) {
-      return Response.json(
-        { error: 'Datos del producto inválidos' },
+      return NextResponse.json(
+        { error: "Datos del producto inválidos" },
         { status: 400 }
       );
     }
 
-    // 7. Insertamos en Supabase
     const { data, error } = await supabase
-      .from('productos')
+      .from("productos")
       .insert({
         nombre: nombre.trim(),
-        descripcion: descripcion ?? '',
+        descripcion: descripcion ?? "",
         cantidad,
         imagen: imagen || null,
-        precio:precio
+        precio
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error en Supabase:', error);
+      console.error("Error en Supabase:", error);
 
-      return Response.json(
-        { error: 'No se pudo guardar el producto' },
+      return NextResponse.json(
+        { error: "No se pudo guardar el producto" },
         { status: 500 }
       );
     }
 
-    // 8. Devolvemos el producto creado
-    return Response.json(data, { status: 201 });
-  }catch(e){
-      console.error('Error en POST:', e);
-
-    return Response.json(
-      { error: 'Error al procesar la solicitud' },
-      { status: 500 }
-    );
+    return NextResponse.json(data, { status: 201 });
+  } catch (error) {
+    return responderError(error, "Error en POST /api/productos:");
   }
-  
 }
