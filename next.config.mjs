@@ -3,7 +3,7 @@ const nextConfig = {
   /* config options here */
   reactCompiler: true,
   allowedDevOrigins: [
-    "machinery-prefers-guide-host.trycloudflare.com",
+    "beer-stick-throws-before.trycloudflare.com",
   ],
 };
 
